@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { StudentSidebar } from "@/components/student-sidebar"
 import { CourseSelector } from "@/components/course-selector"
 import { GradeTable } from "@/components/grade-table"
@@ -141,6 +142,14 @@ const mockAnnouncements = {
 
 export default function StudentClasses() {
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const courseParam = searchParams.get("course")
+    if (courseParam) {
+      setSelectedCourse(courseParam)
+    }
+  }, [searchParams])
 
   const selectedCourseData = selectedCourse
     ? mockCourses.find((c) => `${c.code}-${c.section}` === selectedCourse)
