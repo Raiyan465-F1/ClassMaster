@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
+import { ThemeToggle } from "@/components/theme-toggle"
 import {
   LayoutDashboard,
   BookOpen,
@@ -61,7 +62,10 @@ export function StudentSidebar() {
           <GraduationCap className="h-6 w-6 text-sidebar-primary" />
           <span className="font-semibold text-sidebar-foreground">Student Portal</span>
         </div>
-        <MobileNav items={sidebarItems} title="Student Portal" icon={GraduationCap} />
+        <div className="flex items-center space-x-2">
+          <ThemeToggle />
+          <MobileNav items={sidebarItems} title="Student Portal" icon={GraduationCap} />
+        </div>
       </div>
 
       <div
@@ -78,14 +82,17 @@ export function StudentSidebar() {
               <span className="font-semibold text-sidebar-foreground">Student Portal</span>
             </div>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCollapsed(!collapsed)}
-            className="text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </Button>
+          <div className="flex items-center space-x-1">
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCollapsed(!collapsed)}
+              className="text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
 
         {/* Navigation */}
