@@ -43,10 +43,10 @@ const sidebarItems = [
 ]
 
 const studentCourses = [
-  { id: "cs101", name: "Computer Science 101", code: "CS101" },
-  { id: "math201", name: "Calculus II", code: "MATH201" },
-  { id: "phys101", name: "Physics I", code: "PHYS101" },
-  { id: "eng102", name: "English Composition", code: "ENG102" },
+  { id: 1, code: "CS101", name: "Introduction to Programming", section: "A" },
+  { id: 2, code: "MATH201", name: "Calculus II", section: "B" },
+  { id: 3, code: "ENG102", name: "English Composition", section: "A" },
+  { id: 4, code: "PHYS151", name: "Physics I", section: "C" },
 ]
 
 export function StudentSidebar() {
@@ -89,7 +89,7 @@ export function StudentSidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {sidebarItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
@@ -134,20 +134,26 @@ export function StudentSidebar() {
             {classesExpanded && !collapsed && (
               <div className="ml-4 space-y-1">
                 {studentCourses.map((course) => {
-                  const isActive = pathname === `/student/classes/${course.id}`
+                  const isActive = pathname.includes("/student/classes") && pathname.includes(course.code.toLowerCase())
+
                   return (
-                    <Link key={course.id} href={`/student/classes/${course.id}`}>
+                    <Link key={course.id} href={`/student/classes?course=${course.code}`}>
                       <Button
                         variant={isActive ? "default" : "ghost"}
                         size="sm"
                         className={cn(
-                          "w-full justify-start text-sm",
+                          "w-full justify-start text-xs",
                           isActive
                             ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
                             : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                         )}
                       >
-                        <span className="truncate">{course.code}</span>
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">{course.code}</span>
+                          <span className="text-xs opacity-75 truncate max-w-[140px]">
+                            {course.name} (Sec {course.section})
+                          </span>
+                        </div>
                       </Button>
                     </Link>
                   )
