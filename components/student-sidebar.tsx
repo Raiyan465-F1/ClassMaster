@@ -43,10 +43,10 @@ const sidebarItems = [
 ]
 
 const studentCourses = [
-  { id: 1, code: "CS101", name: "Introduction to Programming", section: "A" },
-  { id: 2, code: "MATH201", name: "Calculus II", section: "B" },
-  { id: 3, code: "ENG102", name: "English Composition", section: "A" },
-  { id: 4, code: "PHYS151", name: "Physics I", section: "C" },
+  { id: 1, code: "CSE101", name: "Introduction to Programming", section: "A" },
+  { id: 2, code: "CSE201", name: "Database Systems", section: "B" },
+  { id: 3, code: "CSE301", name: "Data Structures", section: "A" },
+  { id: 4, code: "CSE401", name: "Software Engineering", section: "C" },
 ]
 
 export function StudentSidebar() {
@@ -134,10 +134,11 @@ export function StudentSidebar() {
             {classesExpanded && !collapsed && (
               <div className="ml-4 space-y-1">
                 {studentCourses.map((course) => {
-                  const isActive = pathname.includes("/student/classes") && pathname.includes(course.code.toLowerCase())
+                  const courseKey = `${course.code}-${course.section}`
+                  const isActive = pathname.includes("/student/classes") && pathname.includes(courseKey.toLowerCase())
 
                   return (
-                    <Link key={course.id} href={`/student/classes?course=${course.code}`}>
+                    <Link key={course.id} href={`/student/classes?course=${courseKey}`}>
                       <Button
                         variant={isActive ? "default" : "ghost"}
                         size="sm"
