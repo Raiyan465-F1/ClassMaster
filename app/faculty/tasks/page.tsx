@@ -2,11 +2,11 @@
 
 import { useState } from "react"
 import { FacultySidebar } from "@/components/faculty-sidebar"
+import { TodoDialog } from "@/components/todo-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { CheckSquare, Filter, Clock, BookOpen, Plus } from "lucide-react"
+import { CheckSquare, Filter, Clock, BookOpen } from "lucide-react"
 
 // Mock data
 const mockTasks = [
@@ -68,6 +68,11 @@ export default function FacultyTasks() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [filterType, setFilterType] = useState("all")
   const [filterCourse, setFilterCourse] = useState("All Courses")
+
+  const handleAddTask = (task: any) => {
+    console.log("[v0] New faculty task added:", task)
+    // In real app, this would call an API to save the task
+  }
 
   const filteredTasks = mockTasks.filter((task) => {
     const matchesStatus = filterStatus === "all" || task.status === filterStatus
@@ -228,10 +233,7 @@ export default function FacultyTasks() {
           {/* Add Manual Task */}
           <Card>
             <CardContent className="pt-6">
-              <Button variant="outline" className="w-full bg-transparent">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Manual Task
-              </Button>
+              <TodoDialog onAddTodo={handleAddTask} />
             </CardContent>
           </Card>
 
