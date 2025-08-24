@@ -14,19 +14,34 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Users,
 } from "lucide-react"
+
+const mockFacultyCourses = [
+  {
+    code: "CSE201",
+    name: "Database Systems",
+    sections: ["A", "B"],
+  },
+  {
+    code: "CSE301",
+    name: "Data Structures",
+    sections: ["A", "C"],
+  },
+  {
+    code: "CSE401",
+    name: "Software Engineering",
+    sections: ["B", "C"],
+  },
+]
 
 const sidebarItems = [
   {
     title: "Dashboard",
     href: "/faculty",
     icon: LayoutDashboard,
-  },
-  {
-    title: "Classes",
-    href: "/faculty/classes",
-    icon: BookOpen,
   },
   {
     title: "Announcements",
@@ -47,6 +62,7 @@ const sidebarItems = [
 
 export function FacultySidebar() {
   const [collapsed, setCollapsed] = useState(false)
+  const [classesExpanded, setClassesExpanded] = useState(true)
   const pathname = usePathname()
 
   return (
@@ -107,6 +123,57 @@ export function FacultySidebar() {
               </Link>
             )
           })}
+
+          {!collapsed && (
+            <div className="space-y-1">
+              <Button
+                variant="ghost"
+                onClick={() => setClassesExpanded(!classesExpanded)}
+                className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              >
+                <BookOpen className="h-4 w-4 mr-2" />
+                <span className="flex-1 text-left">Classes</span>
+                {classesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+
+              {classesExpanded && (
+                <div className="ml-6 space-y-1">
+                  {mockFacultyCourses.map((course) =>
+                    course.sections.map((section) => {
+                      const courseSection = `${course.code}; section ${section}`
+                      const isActive =
+                        pathname.includes("/faculty/classes") &&
+                        pathname.includes(`course=${course.code}`) &&
+                        pathname.includes(`section=${section}`)
+
+                      return (
+                        <Link
+                          key={`${course.code}-${section}`}
+                          href={`/faculty/classes?course=${course.code}&section=${section}`}
+                        >
+                          <Button
+                            variant={isActive ? "default" : "ghost"}
+                            size="sm"
+                            className={cn(
+                              "w-full justify-start text-xs",
+                              isActive
+                                ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+                                : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                            )}
+                          >
+                            <div className="flex flex-col items-start">
+                              <span className="font-medium">{courseSection}</span>
+                              <span className="text-xs opacity-75">{course.name}</span>
+                            </div>
+                          </Button>
+                        </Link>
+                      )
+                    }),
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </nav>
 
         {/* Footer */}

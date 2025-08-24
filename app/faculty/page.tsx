@@ -1,8 +1,12 @@
+"use client"
+
 import { FacultySidebar } from "@/components/faculty-sidebar"
 import { DashboardCard } from "@/components/dashboard-card"
+import { TodoDialog } from "@/components/todo-dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckSquare, Calendar, BookOpen, Clock, Users, Plus } from "lucide-react"
+import { CheckSquare, Calendar, BookOpen, Clock, Users } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 // Mock data for faculty dashboard
 const mockFacultyTasks = [
@@ -42,6 +46,17 @@ const mockRecentActivity = [
 ]
 
 export default function FacultyDashboard() {
+  const router = useRouter()
+
+  const handleAddTask = (task: any) => {
+    console.log("[v0] New faculty task added:", task)
+    // In real app, this would call an API to save the task
+  }
+
+  const handleViewActivity = () => {
+    router.push("/faculty/announcements")
+  }
+
   return (
     <div className="flex h-screen bg-background">
       <FacultySidebar />
@@ -133,10 +148,7 @@ export default function FacultyDashboard() {
                     </div>
                   </div>
                 ))}
-                <Button variant="outline" className="w-full mt-4 bg-transparent">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Manual Task
-                </Button>
+                <TodoDialog onAddTodo={handleAddTask} />
               </div>
             </DashboardCard>
 
@@ -169,7 +181,7 @@ export default function FacultyDashboard() {
                     </div>
                   </div>
                 ))}
-                <Button variant="outline" className="w-full mt-4 bg-transparent">
+                <Button variant="outline" className="w-full mt-4 bg-transparent" onClick={handleViewActivity}>
                   View All Activity
                 </Button>
               </div>
