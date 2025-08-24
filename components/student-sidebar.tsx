@@ -14,6 +14,8 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   GraduationCap,
 } from "lucide-react"
 
@@ -22,11 +24,6 @@ const sidebarItems = [
     title: "Dashboard",
     href: "/student",
     icon: LayoutDashboard,
-  },
-  {
-    title: "Classes",
-    href: "/student/classes",
-    icon: BookOpen,
   },
   {
     title: "Announcements",
@@ -45,8 +42,16 @@ const sidebarItems = [
   },
 ]
 
+const studentCourses = [
+  { id: "cs101", name: "Computer Science 101", code: "CS101" },
+  { id: "math201", name: "Calculus II", code: "MATH201" },
+  { id: "phys101", name: "Physics I", code: "PHYS101" },
+  { id: "eng102", name: "English Composition", code: "ENG102" },
+]
+
 export function StudentSidebar() {
   const [collapsed, setCollapsed] = useState(false)
+  const [classesExpanded, setClassesExpanded] = useState(true)
   const pathname = usePathname()
 
   return (
@@ -107,6 +112,49 @@ export function StudentSidebar() {
               </Link>
             )
           })}
+
+          <div className="space-y-1">
+            <Button
+              variant="ghost"
+              onClick={() => setClassesExpanded(!classesExpanded)}
+              className={cn(
+                "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                collapsed && "px-2",
+              )}
+            >
+              <BookOpen className={cn("h-4 w-4", !collapsed && "mr-2")} />
+              {!collapsed && (
+                <>
+                  <span className="flex-1 text-left">Classes</span>
+                  {classesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </>
+              )}
+            </Button>
+
+            {classesExpanded && !collapsed && (
+              <div className="ml-4 space-y-1">
+                {studentCourses.map((course) => {
+                  const isActive = pathname === `/student/classes/${course.id}`
+                  return (
+                    <Link key={course.id} href={`/student/classes/${course.id}`}>
+                      <Button
+                        variant={isActive ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-sm",
+                          isActive
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+                            : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                        )}
+                      >
+                        <span className="truncate">{course.code}</span>
+                      </Button>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* Footer */}
