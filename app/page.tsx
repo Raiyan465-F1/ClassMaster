@@ -14,7 +14,7 @@ export default function LoginPage() {
               <GraduationCap className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-foreground">EduPortal</h1>
+          <h1 className="text-3xl font-bold text-foreground">ClassMaster</h1>
           <p className="text-muted-foreground">Your unified platform for academic management</p>
         </div>
 

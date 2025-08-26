@@ -50,7 +50,7 @@ export default function StudentDashboard() {
   const router = useRouter()
 
   const handleAddTodo = (todo: any) => {
-    console.log("[v0] New todo added:", todo)
+    console.log("New todo added:", todo)
     // In real app, this would call an API to save the todo
   }
 
