@@ -119,7 +119,7 @@ export function AdminSidebar() {
         <div className="p-4 border-t border-sidebar-border">
           <Link href="/">
             <Button variant="outline" className={cn("w-full", collapsed && "px-2")}>
-              {collapsed ? "←" : "← Back to Login"}
+              {collapsed ? "←" : "← Sign Out"}
             </Button>
           </Link>
         </div>
