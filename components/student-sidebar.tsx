@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   GraduationCap,
+  Trophy,
 } from "lucide-react"
 
 const sidebarItems = [
@@ -39,6 +40,11 @@ const sidebarItems = [
     title: "Todo",
     href: "/student/todo",
     icon: CheckSquare,
+  },
+  {
+    title: "Leaderboard",
+    href: "/student/leaderboard",
+    icon: Trophy,
   },
 ]
 

@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
+  Trophy,
 } from "lucide-react"
 
 const mockFacultyCourses = [
@@ -57,6 +58,11 @@ const sidebarItems = [
     title: "Schedule",
     href: "/faculty/schedule",
     icon: Calendar,
+  },
+  {
+    title: "Leaderboard",
+    href: "/faculty/leaderboard",
+    icon: Trophy,
   },
 ]
 
