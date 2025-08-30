@@ -1,9 +1,13 @@
+"use client"
+
 import { StudentSidebar } from "@/components/student-sidebar"
 import { DashboardCard } from "@/components/dashboard-card"
 import { TodoItem } from "@/components/todo-item"
+import { TodoDialog } from "@/components/todo-dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckSquare, Calendar, Megaphone, Clock, BookOpen, Plus } from "lucide-react"
+import { CheckSquare, Calendar, Megaphone, Clock, BookOpen } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 // Mock data - in real app this would come from API
 const mockTodos = [
@@ -43,6 +47,17 @@ const mockAnnouncements = [
 ]
 
 export default function StudentDashboard() {
+  const router = useRouter()
+
+  const handleAddTodo = (todo: any) => {
+    console.log("[v0] New todo added:", todo)
+    // In real app, this would call an API to save the todo
+  }
+
+  const handleViewAnnouncements = () => {
+    router.push("/student/announcements")
+  }
+
   return (
     <div className="flex flex-col md:flex-row h-screen bg-background">
       <StudentSidebar />
@@ -115,10 +130,7 @@ export default function StudentDashboard() {
                 {mockTodos.map((todo) => (
                   <TodoItem key={todo.id} {...todo} />
                 ))}
-                <Button variant="outline" className="w-full mt-4 bg-transparent">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Manual Todo
-                </Button>
+                <TodoDialog onAddTodo={handleAddTodo} />
               </div>
             </DashboardCard>
 
@@ -149,7 +161,7 @@ export default function StudentDashboard() {
                     </div>
                   </div>
                 ))}
-                <Button variant="outline" className="w-full mt-4 bg-transparent">
+                <Button variant="outline" className="w-full mt-4 bg-transparent" onClick={handleViewAnnouncements}>
                   View All Announcements
                 </Button>
               </div>

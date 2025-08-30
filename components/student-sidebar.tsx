@@ -14,6 +14,8 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   GraduationCap,
 } from "lucide-react"
 
@@ -22,11 +24,6 @@ const sidebarItems = [
     title: "Dashboard",
     href: "/student",
     icon: LayoutDashboard,
-  },
-  {
-    title: "Classes",
-    href: "/student/classes",
-    icon: BookOpen,
   },
   {
     title: "Announcements",
@@ -45,8 +42,16 @@ const sidebarItems = [
   },
 ]
 
+const studentCourses = [
+  { id: 1, code: "CSE101", name: "Introduction to Programming", section: "A" },
+  { id: 2, code: "CSE201", name: "Database Systems", section: "B" },
+  { id: 3, code: "CSE301", name: "Data Structures", section: "A" },
+  { id: 4, code: "CSE401", name: "Software Engineering", section: "C" },
+]
+
 export function StudentSidebar() {
   const [collapsed, setCollapsed] = useState(false)
+  const [classesExpanded, setClassesExpanded] = useState(true)
   const pathname = usePathname()
 
   return (
@@ -84,7 +89,7 @@ export function StudentSidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {sidebarItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
@@ -107,6 +112,56 @@ export function StudentSidebar() {
               </Link>
             )
           })}
+
+          <div className="space-y-1">
+            <Button
+              variant="ghost"
+              onClick={() => setClassesExpanded(!classesExpanded)}
+              className={cn(
+                "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                collapsed && "px-2",
+              )}
+            >
+              <BookOpen className={cn("h-4 w-4", !collapsed && "mr-2")} />
+              {!collapsed && (
+                <>
+                  <span className="flex-1 text-left">Classes</span>
+                  {classesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </>
+              )}
+            </Button>
+
+            {classesExpanded && !collapsed && (
+              <div className="ml-4 space-y-1">
+                {studentCourses.map((course) => {
+                  const courseKey = `${course.code}-${course.section}`
+                  const isActive = pathname.includes("/student/classes") && pathname.includes(courseKey.toLowerCase())
+
+                  return (
+                    <Link key={course.id} href={`/student/classes?course=${courseKey}`}>
+                      <Button
+                        variant={isActive ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-xs",
+                          isActive
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+                            : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                        )}
+                      >
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">{course.code}</span>
+                          <span className="text-xs opacity-75 truncate max-w-[140px]">
+                            {course.name} (Sec {course.section})
+                          </span>
+                        </div>
+                      </Button>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* Footer */}

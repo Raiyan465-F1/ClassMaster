@@ -3,11 +3,11 @@
 import { useState } from "react"
 import { StudentSidebar } from "@/components/student-sidebar"
 import { TodoItem } from "@/components/todo-item"
+import { TodoDialog } from "@/components/todo-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Filter, Search, CheckSquare, Plus } from "lucide-react"
+import { Filter, Search, CheckSquare } from "lucide-react"
 
 // Mock data
 const mockTodos = [
@@ -74,6 +74,11 @@ export default function StudentTodo() {
   const [filterType, setFilterType] = useState("all")
   const [filterCourse, setFilterCourse] = useState("All Courses")
   const [searchTerm, setSearchTerm] = useState("")
+
+  const handleAddTodo = (todo: any) => {
+    console.log("[v0] New todo added:", todo)
+    // In real app, this would call an API to save the todo
+  }
 
   const filteredTodos = mockTodos.filter((todo) => {
     const matchesStatus = filterStatus === "all" || todo.status === filterStatus
@@ -213,10 +218,7 @@ export default function StudentTodo() {
           {/* Add Manual Todo */}
           <Card>
             <CardContent className="pt-6">
-              <Button variant="outline" className="w-full bg-transparent">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Manual Todo
-              </Button>
+              <TodoDialog onAddTodo={handleAddTodo} />
             </CardContent>
           </Card>
 
