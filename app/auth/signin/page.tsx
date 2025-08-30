@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { GraduationCap, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
+import { loginUser, type LoginRequest } from "@/lib/api"
 
 export default function SignInPage() {
   const router = useRouter()
@@ -31,21 +32,29 @@ export default function SignInPage() {
       return
     }
 
+    // Validate that ID is a number
+    const userId = parseInt(formData.id)
+    if (isNaN(userId)) {
+      toast.error("Please enter a numeric User ID (e.g., 2024001, 123). Email addresses are not supported for login.")
+      return
+    }
+
     setIsLoading(true)
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Prepare API request data
+      const loginData: LoginRequest = {
+        user_id: userId,
+        password: formData.password
+      }
+
+      // Call login API
+      const response = await loginUser(loginData)
       
-      // Mock authentication - in real app, this would validate credentials and determine role
-      // Simulate backend response with user role
-      const mockUserRole = formData.id.startsWith("admin") ? "admin" : 
-                           formData.id.startsWith("fac") ? "faculty" : "student"
-      
-      toast.success(`Welcome back!`)
+      toast.success(`Welcome back, ${response.name}!`)
       
       // Redirect based on role returned from backend
-      switch (mockUserRole) {
+      switch (response.role) {
         case "student":
           router.push("/student")
           break
@@ -59,7 +68,8 @@ export default function SignInPage() {
           toast.error("Unable to determine user role")
       }
     } catch (error) {
-      toast.error("Sign in failed. Please try again.")
+      const errorMessage = error instanceof Error ? error.message : "Sign in failed. Please try again."
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -96,14 +106,14 @@ export default function SignInPage() {
                 <Label htmlFor="id">User ID</Label>
                 <Input
                   id="id"
-                  type="text"
-                  placeholder="Enter your Student ID, Faculty ID, or Admin ID"
+                  type="number"
+                  placeholder="Enter your numeric User ID (e.g., 2024001, 123)"
                   value={formData.id}
                   onChange={(e) => handleInputChange("id", e.target.value)}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Your role will be automatically determined from your ID
+                  Enter your numeric User ID (not email). Your role will be automatically determined from your ID.
                 </p>
               </div>
 
