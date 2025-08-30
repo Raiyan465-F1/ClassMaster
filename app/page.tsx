@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { GraduationCap, Users, Shield } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { GraduationCap, Users, Shield, LogIn, UserPlus } from "lucide-react"
 import Link from "next/link"
 
 export default function LoginPage() {
@@ -70,6 +71,34 @@ export default function LoginPage() {
               </CardContent>
             </Link>
           </Card>
+        </div>
+
+        {/* Authentication Section */}
+        <div className="space-y-4">
+          <div className="flex items-center space-x-4">
+            <Separator className="flex-1" />
+            <span className="text-sm text-muted-foreground">Authentication</span>
+            <Separator className="flex-1" />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <Link href="/auth/signin">
+              <Button variant="outline" className="w-full">
+                <LogIn className="h-4 w-4 mr-2" />
+                Sign In
+              </Button>
+            </Link>
+            <Link href="/auth/register">
+              <Button variant="outline" className="w-full">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Register
+              </Button>
+            </Link>
+          </div>
+          
+          <p className="text-xs text-center text-muted-foreground">
+            New users can register as Student or Faculty
+          </p>
         </div>
 
         {/* Footer */}
