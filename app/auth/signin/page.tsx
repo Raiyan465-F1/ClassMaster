@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { GraduationCap, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import { loginUser, type LoginRequest } from "@/lib/api"
+import { setCurrentUser } from "@/lib/auth"
 
 export default function SignInPage() {
   const router = useRouter()
@@ -48,25 +49,28 @@ export default function SignInPage() {
         password: formData.password
       }
 
-      // Call login API
-      const response = await loginUser(loginData)
-      
-      toast.success(`Welcome back, ${response.name}!`)
-      
-      // Redirect based on role returned from backend
-      switch (response.role) {
-        case "student":
-          router.push("/student")
-          break
-        case "faculty":
-          router.push("/faculty")
-          break
-        case "admin":
-          router.push("/admin")
-          break
-        default:
-          toast.error("Unable to determine user role")
-      }
+             // Call login API
+       const response = await loginUser(loginData)
+       
+       // Store user data in localStorage for session management
+       setCurrentUser(response)
+       
+       toast.success(`Welcome back, ${response.name}!`)
+       
+       // Redirect based on role returned from backend
+       switch (response.role) {
+         case "student":
+           router.push("/student")
+           break
+         case "faculty":
+           router.push("/faculty")
+           break
+         case "admin":
+           router.push("/admin")
+           break
+         default:
+           toast.error("Unable to determine user role")
+       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Sign in failed. Please try again."
       toast.error(errorMessage)

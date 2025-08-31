@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
+import { clearCurrentUser } from "@/lib/auth"
 import {
   LayoutDashboard,
   BookOpen,
@@ -59,6 +60,11 @@ export function StudentSidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [classesExpanded, setClassesExpanded] = useState(true)
   const pathname = usePathname()
+
+  const handleSignOut = () => {
+    clearCurrentUser()
+    // No need to navigate, the Link component will handle the navigation
+  }
 
   return (
     <>
@@ -172,7 +178,7 @@ export function StudentSidebar() {
 
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border">
-          <Link href="/">
+          <Link href="/" onClick={handleSignOut}>
             <Button variant="outline" className={cn("w-full", collapsed && "px-2")}>
               {collapsed ? "←" : "← Sign Out"}
             </Button>
