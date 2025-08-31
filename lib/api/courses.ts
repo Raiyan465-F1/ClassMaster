@@ -130,6 +130,97 @@ export async function getSections(): Promise<Section[]> {
   }
 }
 
+// Faculty section assignment types
+export interface AssignSectionRequest {
+  course_code: string
+  sec_number: number
+}
+
+export interface AssignSectionResponse {
+  faculty_id: number
+  course_code: string
+  sec_number: number
+}
+
+export interface FacultySection {
+  faculty_id: number
+  course_code: string
+  sec_number: number
+}
+
+// Faculty section assignment API functions
+export async function assignSection(data: AssignSectionRequest): Promise<AssignSectionResponse> {
+  try {
+    const currentUser = getCurrentUser()
+    if (!currentUser) {
+      throw new Error('User not authenticated. Please log in again.')
+    }
+
+    if (currentUser.role !== 'faculty') {
+      throw new Error('Only faculty users can assign themselves to sections.')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/faculty/assign-section`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User_ID': currentUser.user_id.toString(),
+      },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      if (response.status === 409) {
+        throw new Error('You are already assigned to this section.')
+      } else if (response.status === 400) {
+        throw new Error(errorData.message || 'Invalid section assignment data. Please check your inputs.')
+      } else if (response.status === 404) {
+        throw new Error('Section not found. Please check the course code and section number.')
+      } else if (response.status >= 500) {
+        throw new Error('Server error. Please try again later.')
+      } else {
+        throw new Error(errorData.message || `Failed to assign section: ${response.status} ${response.statusText}`)
+      }
+    }
+
+    return await response.json()
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to the server. Please check your internet connection.')
+    }
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to assign section')
+  }
+}
+
+export async function getFacultySections(facultyId: number): Promise<FacultySection[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/faculty/${facultyId}/sections`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch faculty sections: ${response.status} ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to the server. Please check your internet connection.')
+    }
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to fetch faculty sections')
+  }
+}
+
 export async function createSection(data: CreateSectionRequest): Promise<Section> {
   try {
     const currentUser = getCurrentUser()

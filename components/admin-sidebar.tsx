@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
+  User,
 } from "lucide-react"
 
 const sidebarItems = [
@@ -121,13 +122,19 @@ export function AdminSidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-sidebar-border">
-          <Link href="/" onClick={handleSignOut}>
-            <Button variant="outline" className={cn("w-full", collapsed && "px-2")}>
-              {collapsed ? "←" : "← Sign Out"}
-            </Button>
-          </Link>
-        </div>
+                  <div className="p-4 border-t border-sidebar-border space-y-2">
+            <Link href="/admin/profile">
+              <Button variant="ghost" className={cn("w-full justify-start", collapsed && "px-2")}>
+                <User className={cn("h-4 w-4", !collapsed && "mr-2")} />
+                {!collapsed && "Profile"}
+              </Button>
+            </Link>
+            <Link href="/" onClick={handleSignOut}>
+              <Button variant="outline" className={cn("w-full", collapsed && "px-2")}>
+                {collapsed ? "←" : "← Sign Out"}
+              </Button>
+            </Link>
+          </div>
       </div>
     </>
   )
