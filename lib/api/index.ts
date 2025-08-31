@@ -1,3 +1,3 @@
 // Export all API functions
 export * from './auth'
-export * from './sections'
+export * from './courses'

@@ -1,4 +1,6 @@
-// API functions for course and section management
+// API functions for course management
+import { getCurrentUser } from '@/lib/auth'
+
 const API_BASE_URL = "http://localhost:8000"
 
 // Types for Course operations
@@ -31,12 +33,10 @@ export interface CreateSectionRequest {
   location: string
 }
 
-export interface UpdateSectionRequest extends CreateSectionRequest {}
-
 // Course API functions
 export async function getCourses(): Promise<Course[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/courses`, {
+    const response = await fetch(`${API_BASE_URL}/all-courses`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -61,10 +61,20 @@ export async function getCourses(): Promise<Course[]> {
 
 export async function createCourse(data: CreateCourseRequest): Promise<Course> {
   try {
-    const response = await fetch(`${API_BASE_URL}/courses`, {
+    const currentUser = getCurrentUser()
+    if (!currentUser) {
+      throw new Error('User not authenticated. Please log in again.')
+    }
+
+    if (currentUser.role !== 'admin') {
+      throw new Error('Only admin users can create courses.')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/create-course`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-User_ID': currentUser.user_id.toString(),
       },
       body: JSON.stringify(data),
     })
@@ -97,7 +107,7 @@ export async function createCourse(data: CreateCourseRequest): Promise<Course> {
 // Section API functions
 export async function getSections(): Promise<Section[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/sections`, {
+    const response = await fetch(`${API_BASE_URL}/all-sections`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -120,37 +130,22 @@ export async function getSections(): Promise<Section[]> {
   }
 }
 
-export async function getSectionsByCourse(courseCode: string): Promise<Section[]> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/courses/${courseCode}/sections`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch sections for course: ${response.status} ${response.statusText}`)
-    }
-
-    return await response.json()
-  } catch (error) {
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('Unable to connect to the server. Please check your internet connection.')
-    }
-    if (error instanceof Error) {
-      throw error
-    }
-    throw new Error('Failed to fetch course sections')
-  }
-}
-
 export async function createSection(data: CreateSectionRequest): Promise<Section> {
   try {
-    const response = await fetch(`${API_BASE_URL}/sections`, {
+    const currentUser = getCurrentUser()
+    if (!currentUser) {
+      throw new Error('User not authenticated. Please log in again.')
+    }
+
+    if (currentUser.role !== 'admin') {
+      throw new Error('Only admin users can create sections.')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/create-section`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-User_ID': currentUser.user_id.toString(),
       },
       body: JSON.stringify(data),
     })
@@ -179,70 +174,5 @@ export async function createSection(data: CreateSectionRequest): Promise<Section
       throw error
     }
     throw new Error('Failed to create section')
-  }
-}
-
-export async function updateSection(courseCode: string, secNumber: number, data: UpdateSectionRequest): Promise<Section> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/sections/${courseCode}/${secNumber}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      if (response.status === 404) {
-        throw new Error('Section not found.')
-      } else if (response.status === 400) {
-        throw new Error(errorData.message || 'Invalid section data. Please check your inputs.')
-      } else if (response.status >= 500) {
-        throw new Error('Server error. Please try again later.')
-      } else {
-        throw new Error(errorData.message || `Failed to update section: ${response.status} ${response.statusText}`)
-      }
-    }
-
-    return await response.json()
-  } catch (error) {
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('Unable to connect to the server. Please check your internet connection.')
-    }
-    if (error instanceof Error) {
-      throw error
-    }
-    throw new Error('Failed to update section')
-  }
-}
-
-export async function deleteSection(courseCode: string, secNumber: number): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/sections/${courseCode}/${secNumber}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      if (response.status === 404) {
-        throw new Error('Section not found.')
-      } else if (response.status >= 500) {
-        throw new Error('Server error. Please try again later.')
-      } else {
-        throw new Error(errorData.message || `Failed to delete section: ${response.status} ${response.statusText}`)
-      }
-    }
-  } catch (error) {
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('Unable to connect to the server. Please check your internet connection.')
-    }
-    if (error instanceof Error) {
-      throw error
-    }
-    throw new Error('Failed to delete section')
   }
 }

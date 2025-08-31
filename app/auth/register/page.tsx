@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { GraduationCap, Eye, EyeOff, Users, UserCheck } from "lucide-react"
 import { toast } from "sonner"
 import { registerUser, type RegisterRequest } from "@/lib/api"
+import { setCurrentUser } from "@/lib/auth"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -45,8 +46,8 @@ export default function RegisterPage() {
       return false
     }
 
-    if (formData.password.length < 6) {
-      toast.error("Password must be at least 6 characters long")
+    if (formData.password.length < 8) {
+      toast.error("Password must be at least 8 characters long")
       return false
     }
 
@@ -55,9 +56,12 @@ export default function RegisterPage() {
       return false
     }
 
-    if (formData.role === "student" && isNaN(parseInt(formData.studentId))) {
-      toast.error("Student ID must be a valid number")
-      return false
+    if (formData.role === "student") {
+      const studentId = parseInt(formData.studentId)
+      if (isNaN(studentId) || studentId <= 0) {
+        toast.error("Student ID must be a valid positive number")
+        return false
+      }
     }
 
     if (formData.role === "faculty" && (!formData.facultyId || !formData.department)) {
@@ -65,9 +69,12 @@ export default function RegisterPage() {
       return false
     }
 
-    if (formData.role === "faculty" && isNaN(parseInt(formData.facultyId))) {
-      toast.error("Faculty ID must be a valid number")
-      return false
+    if (formData.role === "faculty") {
+      const facultyId = parseInt(formData.facultyId)
+      if (isNaN(facultyId) || facultyId <= 0) {
+        toast.error("Faculty ID must be a valid positive number")
+        return false
+      }
     }
 
     return true
@@ -97,6 +104,9 @@ export default function RegisterPage() {
 
       // Call register API
       const response = await registerUser(registerData)
+      
+      // Store user data in localStorage
+      setCurrentUser(response)
       
       toast.success(`Registration successful! Welcome to ClassMaster, ${response.name}!`)
       
@@ -232,7 +242,7 @@ export default function RegisterPage() {
                        <Input
                          id="password"
                          type={showPassword ? "text" : "password"}
-                         placeholder="Create a password (min. 6 characters)"
+                                                   placeholder="Create a password (min. 8 characters)"
                          value={formData.password}
                          onChange={(e) => handleInputChange("password", e.target.value)}
                          required
@@ -356,7 +366,7 @@ export default function RegisterPage() {
                        <Input
                          id="password"
                          type={showPassword ? "text" : "password"}
-                         placeholder="Create a password (min. 6 characters)"
+                                                   placeholder="Create a password (min. 8 characters)"
                          value={formData.password}
                          onChange={(e) => handleInputChange("password", e.target.value)}
                          required
