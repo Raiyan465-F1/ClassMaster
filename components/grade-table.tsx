@@ -8,6 +8,8 @@ import { Filter } from "lucide-react"
 
 interface Grade {
   id: string
+  studentId: string
+  studentName: string
   type: "quiz" | "assignment" | "attendance" | "midterm" | "final"
   title: string
   marks: number
@@ -93,8 +95,10 @@ export function GradeTable({ grades, courseCode }: GradeTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Assessment</TableHead>
+              <TableHead>Student Name</TableHead>
+              <TableHead>Student ID</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Assessment</TableHead>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">Score</TableHead>
               <TableHead className="text-right">Percentage</TableHead>
@@ -103,19 +107,21 @@ export function GradeTable({ grades, courseCode }: GradeTableProps) {
           <TableBody>
             {filteredGrades.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   No grades found for the selected filter.
                 </TableCell>
               </TableRow>
             ) : (
               filteredGrades.map((grade) => (
                 <TableRow key={grade.id}>
-                  <TableCell className="font-medium">{grade.title}</TableCell>
+                  <TableCell className="font-medium">{grade.studentName}</TableCell>
+                  <TableCell className="font-medium">{grade.studentId}</TableCell>
                   <TableCell>
                     <Badge variant="secondary" className={getTypeColor(grade.type)}>
                       {grade.type}
                     </Badge>
                   </TableCell>
+                  <TableCell className="font-medium">{grade.title}</TableCell>
                   <TableCell className="text-muted-foreground">{grade.date}</TableCell>
                   <TableCell className="text-right">
                     {grade.marks}/{grade.totalMarks}

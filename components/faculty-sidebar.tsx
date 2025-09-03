@@ -15,6 +15,8 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Users,
   Trophy,
   User,
@@ -55,8 +57,19 @@ const sidebarItems = [
   },
 ]
 
+// Mock faculty courses - in real app, this would come from API
+const facultyCourses = [
+  { id: 1, code: "CSE201", name: "Database Systems", section: "A" },
+  { id: 2, code: "CSE201", name: "Database Systems", section: "B" },
+  { id: 3, code: "CSE301", name: "Data Structures", section: "A" },
+  { id: 4, code: "CSE301", name: "Data Structures", section: "C" },
+  { id: 5, code: "CSE401", name: "Software Engineering", section: "B" },
+  { id: 6, code: "CSE401", name: "Software Engineering", section: "C" },
+]
+
 export function FacultySidebar() {
   const [collapsed, setCollapsed] = useState(false)
+  const [classesExpanded, setClassesExpanded] = useState(true)
   const pathname = usePathname()
 
   const handleSignOut = () => {
@@ -121,6 +134,56 @@ export function FacultySidebar() {
               </Link>
             )
           })}
+
+          <div className="space-y-1">
+            <Button
+              variant="ghost"
+              onClick={() => setClassesExpanded(!classesExpanded)}
+              className={cn(
+                "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                collapsed && "px-2",
+              )}
+            >
+              <Users className={cn("h-4 w-4", !collapsed && "mr-2")} />
+              {!collapsed && (
+                <>
+                  <span className="flex-1 text-left">Classes</span>
+                  {classesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </>
+              )}
+            </Button>
+
+            {classesExpanded && !collapsed && (
+              <div className="ml-4 space-y-1">
+                {facultyCourses.map((course) => {
+                  const courseKey = `${course.code}-${course.section}`
+                  const isActive = pathname.includes("/faculty/classes") && pathname.includes(courseKey.toLowerCase())
+
+                  return (
+                    <Link key={course.id} href={`/faculty/classes?course=${course.code}&section=${course.section}`}>
+                      <Button
+                        variant={isActive ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-xs",
+                          isActive
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+                            : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                        )}
+                      >
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">{course.code} ({course.section})</span>
+                          <span className="text-xs opacity-75 truncate max-w-[140px]">
+                            {course.name}
+                          </span>
+                        </div>
+                      </Button>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
 
         </nav>
