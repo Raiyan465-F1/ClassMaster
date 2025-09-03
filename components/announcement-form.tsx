@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Save } from "lucide-react"
+import { Plus, Save, Calendar } from "lucide-react"
+import { toast } from "sonner"
 
 interface AnnouncementFormProps {
   onSubmit: (announcement: {
@@ -18,21 +19,31 @@ interface AnnouncementFormProps {
     type: "quiz" | "assignment" | "general"
     courseCode: string
     section: string
+    deadline?: string
   }) => void
   courses: Array<{ code: string; name: string; sections: string[] }>
+  isSubmitting?: boolean
 }
 
-export function AnnouncementForm({ onSubmit, courses }: AnnouncementFormProps) {
+export function AnnouncementForm({ onSubmit, courses, isSubmitting = false }: AnnouncementFormProps) {
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [type, setType] = useState<"quiz" | "assignment" | "general">("general")
   const [selectedCourse, setSelectedCourse] = useState("")
   const [selectedSection, setSelectedSection] = useState("")
+  const [deadline, setDeadline] = useState("")
 
   const selectedCourseData = courses.find((c) => c.code === selectedCourse)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate deadline requirement for quiz and assignment types
+    if ((type === 'quiz' || type === 'assignment') && !deadline) {
+      toast.error(`Deadline is required for ${type} announcements.`)
+      return
+    }
+    
     if (title && content && selectedCourse && selectedSection) {
       onSubmit({
         title,
@@ -40,6 +51,7 @@ export function AnnouncementForm({ onSubmit, courses }: AnnouncementFormProps) {
         type,
         courseCode: selectedCourse,
         section: selectedSection,
+        deadline: deadline || undefined,
       })
       // Reset form
       setTitle("")
@@ -47,6 +59,7 @@ export function AnnouncementForm({ onSubmit, courses }: AnnouncementFormProps) {
       setType("general")
       setSelectedCourse("")
       setSelectedSection("")
+      setDeadline("")
     }
   }
 
@@ -132,10 +145,31 @@ export function AnnouncementForm({ onSubmit, courses }: AnnouncementFormProps) {
             />
           </div>
 
+          {/* Deadline field - only show for quiz and assignment types */}
+          {(type === 'quiz' || type === 'assignment') && (
+            <div>
+              <Label htmlFor="deadline" className="flex items-center space-x-2">
+                <Calendar className="h-4 w-4" />
+                <span>Deadline *</span>
+              </Label>
+              <Input
+                id="deadline"
+                type="datetime-local"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                required
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Deadline is required for {type} announcements
+              </p>
+            </div>
+          )}
+
           <div className="flex justify-end">
-            <Button type="submit" disabled={!title || !content || !selectedCourse || !selectedSection}>
+            <Button type="submit" disabled={!title || !content || !selectedCourse || !selectedSection || isSubmitting}>
               <Save className="h-4 w-4 mr-2" />
-              Post Announcement
+              {isSubmitting ? "Posting..." : "Post Announcement"}
             </Button>
           </div>
         </form>

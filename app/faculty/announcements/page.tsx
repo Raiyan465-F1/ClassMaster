@@ -1,70 +1,132 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FacultySidebar } from "@/components/faculty-sidebar"
 import { AnnouncementCard } from "@/components/announcement-card"
 import { AnnouncementForm } from "@/components/announcement-form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Megaphone, Plus } from "lucide-react"
+import { toast } from "sonner"
+import { getFacultySections, getCourses, getSections } from "@/lib/api/courses"
+import { createAnnouncement, type Announcement } from "@/lib/api/announcements"
+import { getCurrentUser } from "@/lib/auth"
 
-// Mock data
-const mockCourses = [
-  { code: "CSE201", name: "Database Systems", sections: ["A", "B"] },
-  { code: "CSE301", name: "Data Structures", sections: ["A", "C"] },
-  { code: "CSE401", name: "Software Engineering", sections: ["B", "C"] },
-]
+// Types for the form
+interface FormAnnouncement {
+  title: string
+  content: string
+  type: "quiz" | "assignment" | "general"
+  courseCode: string
+  section: string
+  deadline?: string
+}
 
-const initialAnnouncements = [
-  {
-    id: "1",
-    title: "Quiz 3 Scheduled for Next Week",
-    content: "Quiz 3 on Normalization will be held next Tuesday. Please review chapters 7-8 from the textbook.",
-    type: "quiz" as const,
-    createdAt: "2 hours ago",
-    instructor: "Prof. Johnson",
-    courseCode: "CSE201",
-    section: "B",
-  },
-  {
-    id: "2",
-    title: "Assignment 2 Released",
-    content: "Assignment 2 on Query Optimization is now available. Due date is February 28th.",
-    type: "assignment" as const,
-    createdAt: "1 day ago",
-    instructor: "Prof. Johnson",
-    courseCode: "CSE201",
-    section: "B",
-  },
-  {
-    id: "3",
-    title: "Lab Session Rescheduled",
-    content: "Tomorrow's lab session has been moved to Friday 10 AM in Lab 2.",
-    type: "general" as const,
-    createdAt: "5 hours ago",
-    instructor: "Prof. Johnson",
-    courseCode: "CSE301",
-    section: "A",
-  },
-]
+// Types for display
+interface DisplayAnnouncement {
+  id: string
+  title: string
+  content: string
+  type: "quiz" | "assignment" | "general"
+  createdAt: string
+  instructor: string
+  courseCode: string
+  section: string
+  deadline?: string
+}
 
 export default function FacultyAnnouncements() {
-  const [announcements, setAnnouncements] = useState(initialAnnouncements)
+  const [announcements, setAnnouncements] = useState<DisplayAnnouncement[]>([])
+  const [courses, setCourses] = useState<Array<{ code: string; name: string; sections: string[] }>>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [user, setUser] = useState<any>(null)
 
-  const handleCreateAnnouncement = (newAnnouncement: {
-    title: string
-    content: string
-    type: "quiz" | "assignment" | "general"
-    courseCode: string
-    section: string
-  }) => {
-    const announcement = {
-      id: Date.now().toString(),
-      ...newAnnouncement,
-      createdAt: "Just now",
-      instructor: "Prof. Johnson", // In real app, this would come from auth
+  useEffect(() => {
+    const currentUser = getCurrentUser()
+    if (currentUser) {
+      setUser(currentUser)
     }
-    setAnnouncements((prev) => [announcement, ...prev])
+  }, [])
+
+  useEffect(() => {
+    if (user) {
+      loadData()
+    }
+  }, [user])
+
+  const loadData = async () => {
+    setIsLoading(true)
+    try {
+      // Load faculty sections to get available courses and sections
+      const facultySections = await getFacultySections(user.user_id)
+      
+      // Get unique courses from faculty sections
+      const courseCodes = [...new Set(facultySections.map(fs => fs.course_code))]
+      
+      // Load course details
+      const allCourses = await getCourses()
+      const facultyCourses = allCourses.filter(course => courseCodes.includes(course.course_code))
+      
+      // Transform faculty sections into the format needed for the form
+      const transformedCourses = facultyCourses.map(course => {
+        const courseSections = facultySections
+          .filter(fs => fs.course_code === course.course_code)
+          .map(fs => fs.sec_number.toString())
+        
+        return {
+          code: course.course_code,
+          name: course.course_name,
+          sections: courseSections
+        }
+      })
+      
+      setCourses(transformedCourses)
+    } catch (error) {
+      console.error('Failed to load data:', error)
+      toast.error('Failed to load course data')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCreateAnnouncement = async (newAnnouncement: FormAnnouncement) => {
+    setIsSubmitting(true)
+    try {
+      // Convert section string to number
+      const sectionNumber = parseInt(newAnnouncement.section)
+      
+      // Create the announcement via API
+      const apiAnnouncement = await createAnnouncement({
+        title: newAnnouncement.title,
+        content: newAnnouncement.content,
+        type: newAnnouncement.type,
+        course_code: newAnnouncement.courseCode,
+        sec_number: sectionNumber,
+        deadline: newAnnouncement.deadline
+      })
+
+      // Add to local state for display
+      const displayAnnouncement: DisplayAnnouncement = {
+        id: apiAnnouncement.announcement_id.toString(),
+        title: apiAnnouncement.title,
+        content: apiAnnouncement.content,
+        type: apiAnnouncement.type,
+        createdAt: "Just now",
+        instructor: `Prof. ${user?.name || 'Faculty'}`,
+        courseCode: apiAnnouncement.section_course_code,
+        section: apiAnnouncement.section_sec_number.toString(),
+        deadline: apiAnnouncement.deadline
+      }
+      
+      setAnnouncements(prev => [displayAnnouncement, ...prev])
+      toast.success('Announcement created successfully!')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create announcement'
+      toast.error(errorMessage)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleEditAnnouncement = (id: string) => {
@@ -88,7 +150,12 @@ export default function FacultyAnnouncements() {
             <p className="text-muted-foreground">Create and manage course announcements for your students</p>
           </div>
 
-          <Tabs defaultValue="create" className="space-y-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <p className="text-muted-foreground">Loading courses and sections...</p>
+            </div>
+          ) : (
+            <Tabs defaultValue="create" className="space-y-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="create" className="flex items-center space-x-2">
                 <Plus className="h-4 w-4" />
@@ -101,7 +168,11 @@ export default function FacultyAnnouncements() {
             </TabsList>
 
             <TabsContent value="create">
-              <AnnouncementForm onSubmit={handleCreateAnnouncement} courses={mockCourses} />
+              <AnnouncementForm 
+                onSubmit={handleCreateAnnouncement} 
+                courses={courses} 
+                isSubmitting={isSubmitting}
+              />
             </TabsContent>
 
             <TabsContent value="manage">
@@ -134,6 +205,7 @@ export default function FacultyAnnouncements() {
               </Card>
             </TabsContent>
           </Tabs>
+          )}
         </div>
       </main>
     </div>

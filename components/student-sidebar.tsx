@@ -29,6 +29,11 @@ const sidebarItems = [
     icon: LayoutDashboard,
   },
   {
+    title: "Course Registration",
+    href: "/student/select-courses",
+    icon: BookOpen,
+  },
+  {
     title: "Announcements",
     href: "/student/announcements",
     icon: Megaphone,

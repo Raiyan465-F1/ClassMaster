@@ -221,6 +221,31 @@ export async function getFacultySections(facultyId: number): Promise<FacultySect
   }
 }
 
+export async function getAllFacultySections(): Promise<FacultySection[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/faculty/all-sections`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch all faculty sections: ${response.status} ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to the server. Please check your internet connection.')
+    }
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to fetch all faculty sections')
+  }
+}
+
 export async function createSection(data: CreateSectionRequest): Promise<Section> {
   try {
     const currentUser = getCurrentUser()
@@ -265,5 +290,96 @@ export async function createSection(data: CreateSectionRequest): Promise<Section
       throw error
     }
     throw new Error('Failed to create section')
+  }
+}
+
+// Student section assignment types
+export interface StudentAssignSectionRequest {
+  course_code: string
+  sec_number: number
+}
+
+export interface StudentAssignSectionResponse {
+  student_id: number
+  course_code: string
+  sec_number: number
+}
+
+export interface StudentSection {
+  student_id: number
+  course_code: string
+  sec_number: number
+}
+
+// Student section assignment API functions
+export async function assignStudentSection(data: StudentAssignSectionRequest): Promise<StudentAssignSectionResponse> {
+  try {
+    const currentUser = getCurrentUser()
+    if (!currentUser) {
+      throw new Error('User not authenticated. Please log in again.')
+    }
+
+    if (currentUser.role !== 'student') {
+      throw new Error('Only student users can enroll in sections.')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/students/assign-section`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User_ID': currentUser.user_id.toString(),
+      },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      if (response.status === 400) {
+        throw new Error('Student is already enrolled in this section.')
+      } else if (response.status === 404) {
+        throw new Error('The specified course or section does not exist.')
+      } else if (response.status === 403) {
+        throw new Error('This action requires a student role.')
+      } else if (response.status >= 500) {
+        throw new Error('Server error. Please try again later.')
+      } else {
+        throw new Error(errorData.detail || `Failed to enroll in section: ${response.status} ${response.statusText}`)
+      }
+    }
+
+    return await response.json()
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to the server. Please check your internet connection.')
+    }
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to enroll in section')
+  }
+}
+
+export async function getStudentSections(studentId: number): Promise<StudentSection[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/students/${studentId}/sections`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch student sections: ${response.status} ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to the server. Please check your internet connection.')
+    }
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to fetch student sections')
   }
 }
