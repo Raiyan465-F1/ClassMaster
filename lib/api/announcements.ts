@@ -154,6 +154,49 @@ export async function updateAnnouncement(announcementId: number, data: CreateAnn
   }
 }
 
+// Delete announcement API function
+export async function deleteAnnouncement(announcementId: number): Promise<void> {
+  try {
+    const currentUser = getCurrentUser()
+    if (!currentUser) {
+      throw new Error('User not authenticated. Please log in again.')
+    }
+
+    if (currentUser.role !== 'faculty') {
+      throw new Error('Only faculty users can delete announcements.')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/announcements/${announcementId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User_ID': currentUser.user_id.toString(),
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      if (response.status === 404) {
+        throw new Error('Announcement not found.')
+      } else if (response.status === 403) {
+        throw new Error('You do not have permission to delete this announcement.')
+      } else if (response.status >= 500) {
+        throw new Error('Server error. Please try again later.')
+      } else {
+        throw new Error(errorData.detail || `Failed to delete announcement: ${response.status} ${response.statusText}`)
+      }
+    }
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to the server. Please check your internet connection.')
+    }
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to delete announcement')
+  }
+}
+
 // Create announcement API function
 export async function createAnnouncement(data: CreateAnnouncementRequest): Promise<Announcement> {
   try {

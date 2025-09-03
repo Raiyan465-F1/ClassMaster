@@ -5,13 +5,14 @@ import { FacultySidebar } from "@/components/faculty-sidebar"
 import { AnnouncementCard } from "@/components/announcement-card"
 import { AnnouncementForm } from "@/components/announcement-form"
 import { EditAnnouncementModal } from "@/components/edit-announcement-modal"
+import { ConfirmationDialog } from "@/components/confirmation-dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Megaphone, Plus, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { getFacultySections, getCourses, getSections } from "@/lib/api/courses"
-import { createAnnouncement, updateAnnouncement, getSectionAnnouncements, getFacultyAnnouncements, type Announcement } from "@/lib/api/announcements"
+import { createAnnouncement, updateAnnouncement, deleteAnnouncement, getSectionAnnouncements, getFacultyAnnouncements, type Announcement } from "@/lib/api/announcements"
 import { getCurrentUser } from "@/lib/auth"
 
 // Types for the form
@@ -53,6 +54,8 @@ export default function FacultyAnnouncements() {
   const [courseSectionOptions, setCourseSectionOptions] = useState<CourseSectionOption[]>([])
   const [editingAnnouncement, setEditingAnnouncement] = useState<DisplayAnnouncement | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [deletingAnnouncement, setDeletingAnnouncement] = useState<DisplayAnnouncement | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   useEffect(() => {
     const currentUser = getCurrentUser()
@@ -221,7 +224,30 @@ export default function FacultyAnnouncements() {
   }
 
   const handleDeleteAnnouncement = (id: string) => {
-    setAnnouncements((prev) => prev.filter((a) => a.id !== id))
+    const announcement = announcements.find(a => a.id === id)
+    if (announcement) {
+      setDeletingAnnouncement(announcement)
+      setIsDeleteDialogOpen(true)
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deletingAnnouncement) return
+
+    try {
+      // Delete the announcement via API
+      await deleteAnnouncement(parseInt(deletingAnnouncement.id))
+      
+      // Remove from local state
+      setAnnouncements((prev) => prev.filter((a) => a.id !== deletingAnnouncement.id))
+      
+      toast.success('Announcement deleted successfully!')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete announcement'
+      toast.error(errorMessage)
+    } finally {
+      setDeletingAnnouncement(null)
+    }
   }
 
   return (
@@ -341,6 +367,21 @@ export default function FacultyAnnouncements() {
         announcement={editingAnnouncement}
         courses={courses}
         onUpdate={handleUpdateAnnouncement}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false)
+          setDeletingAnnouncement(null)
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete Announcement"
+        description={`Are you sure you want to delete "${deletingAnnouncement?.title}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
       />
     </div>
   )
