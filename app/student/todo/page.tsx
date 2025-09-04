@@ -1,89 +1,69 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { StudentSidebar } from "@/components/student-sidebar"
 import { TodoItem } from "@/components/todo-item"
 import { TodoDialog } from "@/components/todo-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Filter, Search, CheckSquare } from "lucide-react"
+import { Filter, Search, CheckSquare, AlertCircle } from "lucide-react"
+import { getStudentTasks, StudentTask } from "@/lib/api/todos"
+import { getCurrentUser } from "@/lib/auth"
 
-// Mock data
-const mockTodos = [
-  {
-    id: "1",
-    title: "Complete Database Assignment 2",
-    status: "pending" as const,
-    dueDate: "2024-02-28",
-    type: "assignment" as const,
-    courseCode: "CSE201",
-    section: "B",
-  },
-  {
-    id: "2",
-    title: "Prepare for Data Structures Quiz 3",
-    status: "delayed" as const,
-    dueDate: "2024-02-15",
-    type: "quiz" as const,
-    courseCode: "CSE301",
-    section: "A",
-  },
-  {
-    id: "3",
-    title: "Submit Lab Report - Tree Traversals",
-    status: "completed" as const,
-    dueDate: "2024-02-10",
-    type: "assignment" as const,
-    courseCode: "CSE301",
-    section: "A",
-  },
-  {
-    id: "4",
-    title: "Software Engineering Project Presentation",
-    status: "pending" as const,
-    dueDate: "2024-03-05",
-    type: "assignment" as const,
-    courseCode: "CSE401",
-    section: "C",
-  },
-  {
-    id: "5",
-    title: "Database Normalization Quiz",
-    status: "pending" as const,
-    dueDate: "2024-02-20",
-    type: "quiz" as const,
-    courseCode: "CSE201",
-    section: "B",
-  },
-  {
-    id: "6",
-    title: "Review Chapter 8 - Advanced SQL",
-    status: "pending" as const,
-    dueDate: "2024-02-18",
-    type: "general" as const,
-    courseCode: "CSE201",
-    section: "B",
-  },
-]
-
-const mockCourses = ["All Courses", "CSE201-B", "CSE301-A", "CSE401-C"]
 
 export default function StudentTodo() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [filterType, setFilterType] = useState("all")
   const [filterCourse, setFilterCourse] = useState("All Courses")
   const [searchTerm, setSearchTerm] = useState("")
+  const [todos, setTodos] = useState<StudentTask[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const currentUser = getCurrentUser()
+
+  useEffect(() => {
+    const fetchTodos = async () => {
+      const user = getCurrentUser() // Get fresh user data inside the effect
+      if (!user || user.role !== 'student') {
+        setError('User not authenticated or not a student')
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        setError(null)
+        const tasks = await getStudentTasks(user.user_id)
+        setTodos(tasks)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch tasks')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchTodos()
+  }, []) // Empty dependency array - only run once on mount
 
   const handleAddTodo = (todo: any) => {
     console.log("[v0] New todo added:", todo)
     // In real app, this would call an API to save the todo
   }
 
-  const filteredTodos = mockTodos.filter((todo) => {
+  // Get unique courses for filter dropdown
+  const availableCourses = ["All Courses", ...Array.from(new Set(
+    todos
+      .filter(todo => todo.course_code && todo.section_number)
+      .map(todo => `${todo.course_code}-${todo.section_number}`)
+  ))]
+
+  const filteredTodos = todos.filter((todo) => {
     const matchesStatus = filterStatus === "all" || todo.status === filterStatus
-    const matchesType = filterType === "all" || todo.type === filterType
-    const matchesCourse = filterCourse === "All Courses" || `${todo.courseCode}-${todo.section}` === filterCourse
+    const matchesType = filterType === "all" || todo.announcement_type === filterType
+    const courseDisplay = todo.course_code && todo.section_number ? `${todo.course_code}-${todo.section_number}` : null
+    const matchesCourse = filterCourse === "All Courses" || courseDisplay === filterCourse
     const matchesSearch = todo.title.toLowerCase().includes(searchTerm.toLowerCase())
 
     return matchesStatus && matchesType && matchesCourse && matchesSearch
@@ -91,9 +71,9 @@ export default function StudentTodo() {
 
   const getStatusCounts = () => {
     return {
-      pending: mockTodos.filter((t) => t.status === "pending").length,
-      completed: mockTodos.filter((t) => t.status === "completed").length,
-      delayed: mockTodos.filter((t) => t.status === "delayed").length,
+      pending: todos.filter((t) => t.status === "pending").length,
+      completed: todos.filter((t) => t.status === "completed").length,
+      delayed: todos.filter((t) => t.status === "delayed").length,
     }
   }
 
@@ -190,7 +170,7 @@ export default function StudentTodo() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockCourses.map((course) => (
+                      {availableCourses.map((course) => (
                         <SelectItem key={course} value={course}>
                           {course}
                         </SelectItem>
@@ -224,7 +204,37 @@ export default function StudentTodo() {
 
           {/* Todo List */}
           <div className="space-y-3">
-            {filteredTodos.length === 0 ? (
+            {loading ? (
+              <Card>
+                <CardContent className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <CheckSquare className="h-16 w-16 text-muted-foreground mx-auto mb-4 animate-pulse" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Loading Tasks...</h3>
+                    <p className="text-muted-foreground">
+                      Please wait while we fetch your tasks.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : error ? (
+              <Card>
+                <CardContent className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <AlertCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Error Loading Tasks</h3>
+                    <p className="text-muted-foreground mb-4">
+                      {error}
+                    </p>
+                    <button 
+                      onClick={() => window.location.reload()} 
+                      className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : filteredTodos.length === 0 ? (
               <Card>
                 <CardContent className="flex items-center justify-center py-12">
                   <div className="text-center">
@@ -237,7 +247,9 @@ export default function StudentTodo() {
                 </CardContent>
               </Card>
             ) : (
-              filteredTodos.map((todo) => <TodoItem key={todo.id} {...todo} />)
+              filteredTodos
+                .filter(todo => todo.todo_id !== undefined && todo.todo_id !== null)
+                .map((todo) => <TodoItem key={todo.todo_id} {...todo} />)
             )}
           </div>
         </div>

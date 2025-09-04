@@ -4,21 +4,52 @@ import { useState } from "react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { updateTaskStatus } from "@/lib/api/todos"
 
 interface TodoItemProps {
-  id: string
+  todo_id: number
   title: string
   status: "pending" | "completed" | "delayed"
-  dueDate?: string
-  type?: "quiz" | "assignment" | "general"
+  due_date: string
+  related_announcement_id: number | null
+  announcement_title: string | null
+  announcement_content: string | null
+  announcement_type: "quiz" | "assignment" | "general" | null
+  announcement_deadline: string | null
+  course_code: string | null
+  section_number: number | null
 }
 
-export function TodoItem({ id, title, status, dueDate, type }: TodoItemProps) {
+export function TodoItem({ 
+  todo_id, 
+  title, 
+  status, 
+  due_date, 
+  announcement_type, 
+  course_code, 
+  section_number 
+}: TodoItemProps) {
   const [checked, setChecked] = useState(status === "completed")
+  const [isUpdating, setIsUpdating] = useState(false)
 
-  const handleCheckedChange = (newChecked: boolean) => {
-    setChecked(newChecked)
-    // Here you would typically update the backend
+  const handleCheckedChange = async (newChecked: boolean) => {
+    if (!todo_id) {
+      console.error('Cannot update task: todo_id is undefined')
+      return
+    }
+    
+    setIsUpdating(true)
+    try {
+      const newStatus = newChecked ? "completed" : "pending"
+      await updateTaskStatus(todo_id, newStatus)
+      setChecked(newChecked)
+    } catch (error) {
+      console.error('Failed to update task status:', error)
+      // Revert the checkbox state on error
+      setChecked(!newChecked)
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
   const getStatusColor = () => {
@@ -33,7 +64,7 @@ export function TodoItem({ id, title, status, dueDate, type }: TodoItemProps) {
   }
 
   const getTypeColor = () => {
-    switch (type) {
+    switch (announcement_type) {
       case "quiz":
         return "bg-chart-2/20 text-chart-2"
       case "assignment":
@@ -43,19 +74,44 @@ export function TodoItem({ id, title, status, dueDate, type }: TodoItemProps) {
     }
   }
 
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString()
+    } catch {
+      return dateString
+    }
+  }
+
+  const getCourseDisplay = () => {
+    if (course_code && section_number) {
+      return `${course_code}-${section_number}`
+    }
+    return null
+  }
+
   return (
     <div className={cn("flex items-center space-x-3 p-3 rounded-lg border", checked && "opacity-60")}>
-      <Checkbox id={id} checked={checked} onCheckedChange={handleCheckedChange} />
+      <Checkbox 
+        id={todo_id?.toString() || `todo-${Math.random()}`} 
+        checked={checked} 
+        onCheckedChange={handleCheckedChange}
+        disabled={isUpdating}
+      />
       <div className="flex-1 min-w-0">
         <div className="flex items-center space-x-2 mb-1">
           <p className={cn("text-sm font-medium", checked && "line-through text-muted-foreground")}>{title}</p>
-          {type && (
+          {announcement_type && (
             <Badge variant="secondary" className={getTypeColor()}>
-              {type}
+              {announcement_type}
+            </Badge>
+          )}
+          {getCourseDisplay() && (
+            <Badge variant="outline" className="text-xs">
+              {getCourseDisplay()}
             </Badge>
           )}
         </div>
-        {dueDate && <p className="text-xs text-muted-foreground">Due: {dueDate}</p>}
+        <p className="text-xs text-muted-foreground">Due: {formatDate(due_date)}</p>
       </div>
       <Badge className={getStatusColor()}>{status}</Badge>
     </div>
