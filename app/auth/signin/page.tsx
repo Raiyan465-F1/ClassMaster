@@ -7,18 +7,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { GraduationCap, Eye, EyeOff, Users, Shield } from "lucide-react"
+import { GraduationCap, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
+import { loginUser, type LoginRequest } from "@/lib/api"
+import { setCurrentUser } from "@/lib/auth"
 
 export default function SignInPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    role: ""
+    id: "",
+    password: ""
   })
 
   const handleInputChange = (field: string, value: string) => {
@@ -28,66 +28,58 @@ export default function SignInPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.email || !formData.password || !formData.role) {
+    if (!formData.id || !formData.password) {
       toast.error("Please fill in all fields")
+      return
+    }
+
+    // Validate that ID is a number
+    const userId = parseInt(formData.id)
+    if (isNaN(userId)) {
+      toast.error("Please enter a numeric User ID (e.g., 2024001, 123). Email addresses are not supported for login.")
       return
     }
 
     setIsLoading(true)
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Mock authentication - in real app, this would validate credentials
-      toast.success(`Welcome back!`)
-      
-      // Redirect based on role
-      switch (formData.role) {
-        case "student":
-          router.push("/student")
-          break
-        case "faculty":
-          router.push("/faculty")
-          break
-        case "admin":
-          router.push("/admin")
-          break
-        default:
-          toast.error("Invalid role selected")
+      // Prepare API request data
+      const loginData: LoginRequest = {
+        user_id: userId,
+        password: formData.password
       }
+
+             // Call login API
+       const response = await loginUser(loginData)
+       
+       // Store user data in localStorage for session management
+       setCurrentUser(response)
+       
+       toast.success(`Welcome back, ${response.name}!`)
+       
+       // Redirect based on role returned from backend
+       switch (response.role) {
+         case "student":
+           router.push("/student")
+           break
+         case "faculty":
+           router.push("/faculty")
+           break
+         case "admin":
+           router.push("/admin")
+           break
+         default:
+           toast.error("Unable to determine user role")
+       }
     } catch (error) {
-      toast.error("Sign in failed. Please try again.")
+      const errorMessage = error instanceof Error ? error.message : "Sign in failed. Please try again."
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case "student":
-        return <GraduationCap className="h-4 w-4" />
-      case "faculty":
-        return <Users className="h-4 w-4" />
-      case "admin":
-        return <Shield className="h-4 w-4" />
-      default:
-        return null
-    }
-  }
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "student":
-        return "text-chart-1"
-      case "faculty":
-        return "text-chart-2"
-      case "admin":
-        return "text-chart-3"
-      default:
-        return "text-muted-foreground"
-    }
-  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -113,57 +105,20 @@ export default function SignInPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignIn} className="space-y-4">
-              {/* Role Selection */}
+              {/* User ID */}
               <div className="space-y-2">
-                <Label htmlFor="role">I am a</Label>
-                <Select 
-                  value={formData.role} 
-                  onValueChange={(value) => handleInputChange("role", value)}
-                >
-                  <SelectTrigger id="role">
-                    <SelectValue placeholder="Select your role">
-                      {formData.role && (
-                        <div className={`flex items-center space-x-2 ${getRoleColor(formData.role)}`}>
-                          {getRoleIcon(formData.role)}
-                          <span className="capitalize">{formData.role}</span>
-                        </div>
-                      )}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="student">
-                      <div className="flex items-center space-x-2 text-chart-1">
-                        <GraduationCap className="h-4 w-4" />
-                        <span>Student</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="faculty">
-                      <div className="flex items-center space-x-2 text-chart-2">
-                        <Users className="h-4 w-4" />
-                        <span>Faculty</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="admin">
-                      <div className="flex items-center space-x-2 text-chart-3">
-                        <Shield className="h-4 w-4" />
-                        <span>Admin</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Email */}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="id">User ID</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  id="id"
+                  type="number"
+                  placeholder="Enter your numeric User ID (e.g., 2024001, 123)"
+                  value={formData.id}
+                  onChange={(e) => handleInputChange("id", e.target.value)}
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  Enter your numeric User ID (not email). Your role will be automatically determined from your ID.
+                </p>
               </div>
 
               {/* Password */}
@@ -216,7 +171,7 @@ export default function SignInPage() {
                 </Link>
               </p>
               <p className="text-xs text-muted-foreground">
-                Note: Admin accounts are created manually by system administrators
+                Students and Faculty can register • Admin accounts are created manually
               </p>
             </div>
           </CardContent>

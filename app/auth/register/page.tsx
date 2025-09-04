@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { GraduationCap, Eye, EyeOff, Users, UserCheck } from "lucide-react"
 import { toast } from "sonner"
+import { registerUser, type RegisterRequest } from "@/lib/api"
+import { setCurrentUser } from "@/lib/auth"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -44,8 +46,8 @@ export default function RegisterPage() {
       return false
     }
 
-    if (formData.password.length < 6) {
-      toast.error("Password must be at least 6 characters long")
+    if (formData.password.length < 8) {
+      toast.error("Password must be at least 8 characters long")
       return false
     }
 
@@ -54,9 +56,25 @@ export default function RegisterPage() {
       return false
     }
 
+    if (formData.role === "student") {
+      const studentId = parseInt(formData.studentId)
+      if (isNaN(studentId) || studentId <= 0) {
+        toast.error("Student ID must be a valid positive number")
+        return false
+      }
+    }
+
     if (formData.role === "faculty" && (!formData.facultyId || !formData.department)) {
       toast.error("Faculty ID and Department are required for faculty registration")
       return false
+    }
+
+    if (formData.role === "faculty") {
+      const facultyId = parseInt(formData.facultyId)
+      if (isNaN(facultyId) || facultyId <= 0) {
+        toast.error("Faculty ID must be a valid positive number")
+        return false
+      }
     }
 
     return true
@@ -70,16 +88,43 @@ export default function RegisterPage() {
     setIsLoading(true)
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Prepare API request data
+      const userId = formData.role === "student" 
+        ? parseInt(formData.studentId) 
+        : parseInt(formData.facultyId)
       
-      // Mock registration - in real app, this would create the user account
-      toast.success(`Registration successful! Welcome to ClassMaster, ${formData.fullName}!`)
+      const registerData: RegisterRequest = {
+        email: formData.email,
+        name: formData.fullName,
+        password: formData.password,
+        preferred_anonymous_name: formData.anonymousName || formData.fullName,
+        role: formData.role as "student" | "faculty",
+        user_id: userId
+      }
+
+      // Call register API
+      const response = await registerUser(registerData)
       
-      // Redirect to signin page
-      router.push("/auth/signin")
+      // Store user data in localStorage
+      setCurrentUser(response)
+      
+      toast.success(`Registration successful! Welcome to ClassMaster, ${response.name}!`)
+      
+      // Redirect to appropriate dashboard based on role
+      switch (response.role) {
+        case "student":
+          router.push("/student")
+          break
+        case "faculty":
+          router.push("/faculty")
+          break
+        default:
+          // Fallback to signin page if role is unexpected
+          router.push("/auth/signin")
+      }
     } catch (error) {
-      toast.error("Registration failed. Please try again.")
+      const errorMessage = error instanceof Error ? error.message : "Registration failed. Please try again."
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -197,7 +242,7 @@ export default function RegisterPage() {
                        <Input
                          id="password"
                          type={showPassword ? "text" : "password"}
-                         placeholder="Create a password (min. 6 characters)"
+                                                   placeholder="Create a password (min. 8 characters)"
                          value={formData.password}
                          onChange={(e) => handleInputChange("password", e.target.value)}
                          required
@@ -321,7 +366,7 @@ export default function RegisterPage() {
                        <Input
                          id="password"
                          type={showPassword ? "text" : "password"}
-                         placeholder="Create a password (min. 6 characters)"
+                                                   placeholder="Create a password (min. 8 characters)"
                          value={formData.password}
                          onChange={(e) => handleInputChange("password", e.target.value)}
                          required

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
+import { clearCurrentUser } from "@/lib/auth"
 import {
   LayoutDashboard,
   BookOpen,
@@ -18,6 +19,7 @@ import {
   ChevronUp,
   GraduationCap,
   Trophy,
+  User,
 } from "lucide-react"
 
 const sidebarItems = [
@@ -25,6 +27,11 @@ const sidebarItems = [
     title: "Dashboard",
     href: "/student",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Course Registration",
+    href: "/student/select-courses",
+    icon: BookOpen,
   },
   {
     title: "Announcements",
@@ -59,6 +66,11 @@ export function StudentSidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [classesExpanded, setClassesExpanded] = useState(true)
   const pathname = usePathname()
+
+  const handleSignOut = () => {
+    clearCurrentUser()
+    // No need to navigate, the Link component will handle the navigation
+  }
 
   return (
     <>
@@ -171,8 +183,14 @@ export function StudentSidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-sidebar-border">
-          <Link href="/">
+        <div className="p-4 border-t border-sidebar-border space-y-2">
+          <Link href="/student/profile">
+            <Button variant="ghost" className={cn("w-full justify-start", collapsed && "px-2")}>
+              <User className={cn("h-4 w-4", !collapsed && "mr-2")} />
+              {!collapsed && "Profile"}
+            </Button>
+          </Link>
+          <Link href="/" onClick={handleSignOut}>
             <Button variant="outline" className={cn("w-full", collapsed && "px-2")}>
               {collapsed ? "←" : "← Sign Out"}
             </Button>

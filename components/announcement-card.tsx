@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Clock, User, Edit, Trash2 } from "lucide-react"
+import { Clock, User, Edit, Trash2, Calendar } from "lucide-react"
 
 interface Announcement {
   id: string
@@ -14,6 +14,7 @@ interface Announcement {
   instructor: string
   courseCode: string
   section: string
+  deadline?: string
 }
 
 interface AnnouncementCardProps {
@@ -66,6 +67,12 @@ export function AnnouncementCard({ announcement, showActions = false, onEdit, on
                 <span className="font-medium">
                   {announcement.courseCode}-{announcement.section}
                 </span>
+                {announcement.deadline && (
+                  <span className="flex items-center space-x-1 text-orange-600">
+                    <Calendar className="h-3 w-3" />
+                    <span>Due: {new Date(announcement.deadline).toLocaleDateString()}</span>
+                  </span>
+                )}
               </CardDescription>
             </div>
           </div>

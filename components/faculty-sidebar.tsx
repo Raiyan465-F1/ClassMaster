@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
+import { clearCurrentUser } from "@/lib/auth"
 import {
   LayoutDashboard,
   BookOpen,
@@ -18,31 +19,21 @@ import {
   ChevronUp,
   Users,
   Trophy,
+  User,
 } from "lucide-react"
 
-const mockFacultyCourses = [
-  {
-    code: "CSE201",
-    name: "Database Systems",
-    sections: ["A", "B"],
-  },
-  {
-    code: "CSE301",
-    name: "Data Structures",
-    sections: ["A", "C"],
-  },
-  {
-    code: "CSE401",
-    name: "Software Engineering",
-    sections: ["B", "C"],
-  },
-]
+
 
 const sidebarItems = [
   {
     title: "Dashboard",
     href: "/faculty",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Select Courses",
+    href: "/faculty/select-courses",
+    icon: BookOpen,
   },
   {
     title: "Announcements",
@@ -66,10 +57,24 @@ const sidebarItems = [
   },
 ]
 
+// Mock faculty courses - in real app, this would come from API
+const facultyCourses = [
+  { id: 1, code: "CSE201", name: "Database Systems", section: "A" },
+  { id: 2, code: "CSE201", name: "Database Systems", section: "B" },
+  { id: 3, code: "CSE301", name: "Data Structures", section: "A" },
+  { id: 4, code: "CSE301", name: "Data Structures", section: "C" },
+  { id: 5, code: "CSE401", name: "Software Engineering", section: "B" },
+  { id: 6, code: "CSE401", name: "Software Engineering", section: "C" },
+]
+
 export function FacultySidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [classesExpanded, setClassesExpanded] = useState(true)
   const pathname = usePathname()
+
+  const handleSignOut = () => {
+    clearCurrentUser()
+  }
 
   return (
     <>
@@ -130,61 +135,68 @@ export function FacultySidebar() {
             )
           })}
 
-          {!collapsed && (
-            <div className="space-y-1">
-              <Button
-                variant="ghost"
-                onClick={() => setClassesExpanded(!classesExpanded)}
-                className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              >
-                <BookOpen className="h-4 w-4 mr-2" />
-                <span className="flex-1 text-left">Classes</span>
-                {classesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </Button>
-
-              {classesExpanded && (
-                <div className="ml-6 space-y-1">
-                  {mockFacultyCourses.map((course) =>
-                    course.sections.map((section) => {
-                      const courseSection = `${course.code}; section ${section}`
-                      const isActive =
-                        pathname.includes("/faculty/classes") &&
-                        pathname.includes(`course=${course.code}`) &&
-                        pathname.includes(`section=${section}`)
-
-                      return (
-                        <Link
-                          key={`${course.code}-${section}`}
-                          href={`/faculty/classes?course=${course.code}&section=${section}`}
-                        >
-                          <Button
-                            variant={isActive ? "default" : "ghost"}
-                            size="sm"
-                            className={cn(
-                              "w-full justify-start text-xs",
-                              isActive
-                                ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
-                                : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                            )}
-                          >
-                            <div className="flex flex-col items-start">
-                              <span className="font-medium">{courseSection}</span>
-                              <span className="text-xs opacity-75">{course.name}</span>
-                            </div>
-                          </Button>
-                        </Link>
-                      )
-                    }),
-                  )}
-                </div>
+          <div className="space-y-1">
+            <Button
+              variant="ghost"
+              onClick={() => setClassesExpanded(!classesExpanded)}
+              className={cn(
+                "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                collapsed && "px-2",
               )}
-            </div>
-          )}
+            >
+              <Users className={cn("h-4 w-4", !collapsed && "mr-2")} />
+              {!collapsed && (
+                <>
+                  <span className="flex-1 text-left">Classes</span>
+                  {classesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </>
+              )}
+            </Button>
+
+            {classesExpanded && !collapsed && (
+              <div className="ml-4 space-y-1">
+                {facultyCourses.map((course) => {
+                  const courseKey = `${course.code}-${course.section}`
+                  const isActive = pathname.includes("/faculty/classes") && pathname.includes(courseKey.toLowerCase())
+
+                  return (
+                    <Link key={course.id} href={`/faculty/classes?course=${course.code}&section=${course.section}`}>
+                      <Button
+                        variant={isActive ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-xs",
+                          isActive
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+                            : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                        )}
+                      >
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">{course.code} ({course.section})</span>
+                          <span className="text-xs opacity-75 truncate max-w-[140px]">
+                            {course.name}
+                          </span>
+                        </div>
+                      </Button>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-sidebar-border">
-          <Link href="/">
+        <div className="p-4 border-t border-sidebar-border space-y-2">
+          <Link href="/faculty/profile">
+            <Button variant="ghost" className={cn("w-full justify-start", collapsed && "px-2")}>
+              <User className={cn("h-4 w-4", !collapsed && "mr-2")} />
+              {!collapsed && "Profile"}
+            </Button>
+          </Link>
+          <Link href="/" onClick={handleSignOut}>
             <Button variant="outline" className={cn("w-full", collapsed && "px-2")}>
               {collapsed ? "←" : "← Sign Out"}
             </Button>
