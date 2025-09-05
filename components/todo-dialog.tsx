@@ -15,51 +15,83 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus } from "lucide-react"
+import { Plus, Loader2 } from "lucide-react"
+import { createTask, StudentTask } from "@/lib/api/todos"
+import { getCurrentUser } from "@/lib/auth"
+import { useToast } from "@/hooks/use-toast"
 
 interface TodoDialogProps {
   trigger?: React.ReactNode
-  onAddTodo?: (todo: {
-    title: string
-    description: string
-    dueDate: string
-    type: string
-    priority: string
-  }) => void
+  onAddTodo?: (todo: StudentTask) => void
 }
 
 export function TodoDialog({ trigger, onAddTodo }: TodoDialogProps) {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
   const [dueDate, setDueDate] = useState("")
-  const [type, setType] = useState("")
-  const [priority, setPriority] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const resetForm = () => {
+    setTitle("")
+    setDueDate("")
+    setError(null)
+  }
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen)
+    if (newOpen) {
+      resetForm()
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (title && dueDate && type && priority) {
-      onAddTodo?.({
+    if (!title) return
+
+    const currentUser = getCurrentUser()
+    if (!currentUser || currentUser.role !== 'student') {
+      setError('User not authenticated or not a student')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      const newTask = await createTask(currentUser.user_id, {
         title,
-        description,
-        dueDate,
-        type,
-        priority,
+        due_date: dueDate || null,
       })
-      // Reset form
-      setTitle("")
-      setDescription("")
-      setDueDate("")
-      setType("")
-      setPriority("")
+      
+      // Call the callback with the created task
+      onAddTodo?.(newTask)
+      
+      // Show success toast
+      toast({
+        title: "Task Created",
+        description: `"${newTask.title}" has been added to your todo list.`,
+      })
+      
+      // Reset form and close dialog
+      resetForm()
       setOpen(false)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create task'
+      setError(errorMessage)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" className="w-full bg-transparent">
@@ -74,6 +106,11 @@ export function TodoDialog({ trigger, onAddTodo }: TodoDialogProps) {
           <DialogDescription>Create a new task to keep track of your work.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md">
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input
@@ -82,58 +119,38 @@ export function TodoDialog({ trigger, onAddTodo }: TodoDialogProps) {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter task title"
               required
+              disabled={isSubmitting}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description">Description (Optional)</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter task description"
-              rows={3}
+            <Label htmlFor="dueDate">Due Date (Optional)</Label>
+            <Input 
+              id="dueDate" 
+              type="date" 
+              value={dueDate} 
+              onChange={(e) => setDueDate(e.target.value)} 
+              disabled={isSubmitting}
             />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="type">Type</Label>
-              <Select value={type} onValueChange={setType} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="assignment">Assignment</SelectItem>
-                  <SelectItem value="quiz">Quiz</SelectItem>
-                  <SelectItem value="exam">Exam</SelectItem>
-                  <SelectItem value="project">Project</SelectItem>
-                  <SelectItem value="personal">Personal</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Select value={priority} onValueChange={setPriority} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="dueDate">Due Date</Label>
-            <Input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setOpen(false)}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
-            <Button type="submit">Add Todo</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Add Todo'
+              )}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

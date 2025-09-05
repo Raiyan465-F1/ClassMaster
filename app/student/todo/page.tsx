@@ -47,9 +47,28 @@ export default function StudentTodo() {
     fetchTodos()
   }, []) // Empty dependency array - only run once on mount
 
-  const handleAddTodo = (todo: any) => {
-    console.log("[v0] New todo added:", todo)
-    // In real app, this would call an API to save the todo
+  const handleAddTodo = (newTask: StudentTask) => {
+    // Add the new task to the existing todos list
+    setTodos(prevTodos => [newTask, ...prevTodos])
+  }
+
+  const refreshTodos = async () => {
+    const user = getCurrentUser()
+    if (!user || user.role !== 'student') {
+      setError('User not authenticated or not a student')
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      const tasks = await getStudentTasks(user.user_id)
+      setTodos(tasks)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch tasks')
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Get unique courses for filter dropdown
@@ -226,7 +245,7 @@ export default function StudentTodo() {
                       {error}
                     </p>
                     <button 
-                      onClick={() => window.location.reload()} 
+                      onClick={refreshTodos} 
                       className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
                     >
                       Retry

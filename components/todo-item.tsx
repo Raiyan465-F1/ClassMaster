@@ -10,7 +10,7 @@ interface TodoItemProps {
   todo_id: number
   title: string
   status: "pending" | "completed" | "delayed"
-  due_date: string
+  due_date: string | null
   related_announcement_id: number | null
   announcement_title: string | null
   announcement_content: string | null
@@ -74,11 +74,68 @@ export function TodoItem({
     }
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) {
+      return "None"
+    }
     try {
       return new Date(dateString).toLocaleDateString()
     } catch {
       return dateString
+    }
+  }
+
+  const getDaysLeft = (dateString: string | null) => {
+    if (!dateString) {
+      return null
+    }
+    try {
+      const dueDate = new Date(dateString)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0) // Reset time to start of day
+      dueDate.setHours(0, 0, 0, 0) // Reset time to start of day
+      
+      const diffTime = dueDate.getTime() - today.getTime()
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      if (diffDays < 0) {
+        return `Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''}`
+      } else if (diffDays === 0) {
+        return "Due today"
+      } else if (diffDays === 1) {
+        return "Due tomorrow"
+      } else {
+        return `${diffDays} days left`
+      }
+    } catch {
+      return null
+    }
+  }
+
+  const getDaysLeftColor = (dateString: string | null) => {
+    if (!dateString) {
+      return ""
+    }
+    try {
+      const dueDate = new Date(dateString)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      dueDate.setHours(0, 0, 0, 0)
+      
+      const diffTime = dueDate.getTime() - today.getTime()
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      if (diffDays < 0) {
+        return "text-destructive" // Red for overdue
+      } else if (diffDays === 0) {
+        return "text-orange-600" // Orange for due today
+      } else if (diffDays <= 3) {
+        return "text-yellow-600" // Yellow for due soon (1-3 days)
+      } else {
+        return "text-muted-foreground" // Default color
+      }
+    } catch {
+      return "text-muted-foreground"
     }
   }
 
@@ -111,7 +168,14 @@ export function TodoItem({
             </Badge>
           )}
         </div>
-        <p className="text-xs text-muted-foreground">Due: {formatDate(due_date)}</p>
+        <div className="text-xs text-muted-foreground">
+          <span>Due: {formatDate(due_date)}</span>
+          {status !== "completed" && getDaysLeft(due_date) && (
+            <span className={`ml-2 font-medium ${getDaysLeftColor(due_date)}`}>
+              ({getDaysLeft(due_date)})
+            </span>
+          )}
+        </div>
       </div>
       <Badge className={getStatusColor()}>{status}</Badge>
     </div>
