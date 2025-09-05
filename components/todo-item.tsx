@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -18,6 +18,7 @@ interface TodoItemProps {
   announcement_deadline: string | null
   course_code: string | null
   section_number: number | null
+  onStatusChange?: (todoId: number, newStatus: "pending" | "completed" | "delayed") => void
 }
 
 export function TodoItem({ 
@@ -27,10 +28,32 @@ export function TodoItem({
   due_date, 
   announcement_type, 
   course_code, 
-  section_number 
+  section_number,
+  onStatusChange
 }: TodoItemProps) {
   const [checked, setChecked] = useState(status === "completed")
   const [isUpdating, setIsUpdating] = useState(false)
+
+  // Update checked state when status prop changes
+  useEffect(() => {
+    setChecked(status === "completed")
+  }, [status])
+
+  const isOverdue = (dateString: string | null) => {
+    if (!dateString) {
+      return false
+    }
+    try {
+      const dueDate = new Date(dateString)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0) // Reset time to start of day
+      dueDate.setHours(0, 0, 0, 0) // Reset time to start of day
+      
+      return dueDate.getTime() < today.getTime()
+    } catch {
+      return false
+    }
+  }
 
   const handleCheckedChange = async (newChecked: boolean) => {
     if (!todo_id) {
@@ -40,9 +63,27 @@ export function TodoItem({
     
     setIsUpdating(true)
     try {
-      const newStatus = newChecked ? "completed" : "pending"
-      await updateTaskStatus(todo_id, newStatus)
+      let newStatus: "pending" | "completed" | "delayed"
+      
+      if (newChecked) {
+        // If checking the task, mark as completed
+        newStatus = "completed"
+      } else {
+        // If unchecking the task, check if it's overdue
+        if (isOverdue(due_date)) {
+          newStatus = "delayed"
+        } else {
+          newStatus = "pending"
+        }
+      }
+      
+      const updatedTask = await updateTaskStatus(todo_id, newStatus)
       setChecked(newChecked)
+      
+      // Notify parent component of the status change
+      onStatusChange?.(todo_id, newStatus)
+      
+      console.log('Task updated:', updatedTask)
     } catch (error) {
       console.error('Failed to update task status:', error)
       // Revert the checkbox state on error

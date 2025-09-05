@@ -52,6 +52,17 @@ export default function StudentTodo() {
     setTodos(prevTodos => [newTask, ...prevTodos])
   }
 
+  const handleStatusChange = (todoId: number, newStatus: "pending" | "completed" | "delayed") => {
+    // Update the todo in the local state
+    setTodos(prevTodos => 
+      prevTodos.map(todo => 
+        todo.todo_id === todoId 
+          ? { ...todo, status: newStatus }
+          : todo
+      )
+    )
+  }
+
   const refreshTodos = async () => {
     const user = getCurrentUser()
     if (!user || user.role !== 'student') {
@@ -268,7 +279,7 @@ export default function StudentTodo() {
             ) : (
               filteredTodos
                 .filter(todo => todo.todo_id !== undefined && todo.todo_id !== null)
-                .map((todo) => <TodoItem key={todo.todo_id} {...todo} />)
+                .map((todo) => <TodoItem key={todo.todo_id} {...todo} onStatusChange={handleStatusChange} />)
             )}
           </div>
         </div>

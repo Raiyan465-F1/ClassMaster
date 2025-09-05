@@ -98,14 +98,14 @@ export async function createTask(studentId: number, data: { title: string; due_d
 }
 
 // Update task status
-export async function updateTaskStatus(taskId: number, status: "pending" | "completed" | "delayed"): Promise<void> {
+export async function updateTaskStatus(taskId: number, status: "pending" | "completed" | "delayed"): Promise<StudentTask> {
   try {
     const currentUser = getCurrentUser()
     if (!currentUser) {
       throw new Error('User not authenticated. Please log in again.')
     }
 
-    const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+    const response = await fetch(`${API_BASE_URL}/students/${currentUser.user_id}/tasks/${taskId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -126,6 +126,8 @@ export async function updateTaskStatus(taskId: number, status: "pending" | "comp
         throw new Error(errorData.detail || `Failed to update task: ${response.status} ${response.statusText}`)
       }
     }
+
+    return await response.json()
   } catch (error) {
     if (error instanceof TypeError && error.message.includes('fetch')) {
       throw new Error('Unable to connect to the server. Please check your internet connection.')
