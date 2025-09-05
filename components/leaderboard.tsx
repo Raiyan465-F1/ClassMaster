@@ -7,19 +7,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Trophy, Medal, Award, Crown } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
+import { 
+  getSections, 
+  getLeaderboard, 
+  getCourses,
+  type Section,
+  type LeaderboardEntry as APILeaderboardEntry,
+  type Course
+} from "@/lib/api/courses"
+import { getCurrentUser } from "@/lib/auth"
 
 interface LeaderboardEntry {
   rank: number
-  studentName: string
-  courseCode: string
-  points: number
-  isAnonymous: boolean
-  anonymousName?: string
-}
-
-interface Course {
-  code: string
-  name: string
+  display_name: string
+  total_points: number
+  is_anonymous: boolean
 }
 
 interface LeaderboardProps {
@@ -27,31 +30,25 @@ interface LeaderboardProps {
   userId?: number
 }
 
-// Mock data - replace with actual API calls
-const mockCourses: Course[] = [
-  { code: "CSE101", name: "Introduction to Programming" },
-  { code: "CSE201", name: "Database Systems" },
-  { code: "CSE301", name: "Data Structures" },
-  { code: "CSE401", name: "Software Engineering" },
-]
-
-const mockLeaderboardData: LeaderboardEntry[] = [
-  { rank: 1, studentName: "Alice Johnson", courseCode: "CSE201", points: 150, isAnonymous: false },
-  { rank: 2, studentName: "Anonymous User", courseCode: "CSE201", points: 135, isAnonymous: true, anonymousName: "CodeNinja" },
-  { rank: 3, studentName: "Bob Smith", courseCode: "CSE201", points: 120, isAnonymous: false },
-  { rank: 4, studentName: "Anonymous User", courseCode: "CSE201", points: 105, isAnonymous: true, anonymousName: "DataMaster" },
-  { rank: 5, studentName: "Charlie Brown", courseCode: "CSE201", points: 95, isAnonymous: false },
-  { rank: 6, studentName: "Diana Prince", courseCode: "CSE201", points: 80, isAnonymous: false },
-  { rank: 7, studentName: "Edward Wilson", courseCode: "CSE201", points: 75, isAnonymous: false },
-  { rank: 8, studentName: "Fiona Green", courseCode: "CSE201", points: 60, isAnonymous: false },
-  { rank: 9, studentName: "George Harris", courseCode: "CSE201", points: 45, isAnonymous: false },
-  { rank: 10, studentName: "Hannah Davis", courseCode: "CSE201", points: 30, isAnonymous: false },
-]
-
 export function Leaderboard({ userRole, userId }: LeaderboardProps) {
   const [selectedCourse, setSelectedCourse] = useState<string>("")
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([])
+  const [availableCourses, setAvailableCourses] = useState<Course[]>([])
+  const [sections, setSections] = useState<Section[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false)
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    const currentUser = getCurrentUser()
+    if (currentUser) {
+      setUser(currentUser)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadAllCourses()
+  }, [user, userRole])
 
   useEffect(() => {
     if (selectedCourse) {
@@ -59,24 +56,52 @@ export function Leaderboard({ userRole, userId }: LeaderboardProps) {
     }
   }, [selectedCourse])
 
-  useEffect(() => {
-    // Set default course selection
-    if (mockCourses.length > 0 && !selectedCourse) {
-      setSelectedCourse(mockCourses[0].code)
+  const loadAllCourses = async () => {
+    setIsLoadingCourses(true)
+    try {
+      // Get all sections to extract unique course codes
+      const sectionsData = await getSections()
+      setSections(sectionsData)
+      
+      // Get unique course codes from sections
+      const courseCodes = [...new Set(sectionsData.map(section => section.course_code))]
+      
+      // Get course details for all courses that have sections
+      const allCourses = await getCourses()
+      const coursesWithSections = allCourses.filter(course => 
+        courseCodes.includes(course.course_code)
+      )
+      
+      setAvailableCourses(coursesWithSections)
+      
+      // Set default course selection
+      if (coursesWithSections.length > 0 && !selectedCourse) {
+        setSelectedCourse(coursesWithSections[0].course_code)
+      }
+    } catch (error) {
+      console.error("Error loading courses:", error)
+      toast.error("Failed to load courses")
+    } finally {
+      setIsLoadingCourses(false)
     }
-  }, [selectedCourse])
+  }
 
   const fetchLeaderboardData = async (courseCode: string) => {
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500))
+      const data = await getLeaderboard(courseCode)
       
-      // Filter mock data by course code
-      const filteredData = mockLeaderboardData.filter(entry => entry.courseCode === courseCode)
-      setLeaderboardData(filteredData)
+      // Add rank to each entry
+      const rankedData = data.map((entry, index) => ({
+        ...entry,
+        rank: index + 1
+      }))
+      
+      setLeaderboardData(rankedData)
     } catch (error) {
       console.error("Error fetching leaderboard data:", error)
+      toast.error("Failed to load leaderboard data")
+      setLeaderboardData([])
     } finally {
       setIsLoading(false)
     }
@@ -109,13 +134,10 @@ export function Leaderboard({ userRole, userId }: LeaderboardProps) {
   }
 
   const getDisplayName = (entry: LeaderboardEntry) => {
-    if (entry.isAnonymous && entry.anonymousName) {
-      return entry.anonymousName
-    }
-    return entry.isAnonymous ? "Anonymous" : entry.studentName
+    return entry.display_name
   }
 
-  const selectedCourseName = mockCourses.find(course => course.code === selectedCourse)?.name || ""
+  const selectedCourseName = availableCourses.find(course => course.course_code === selectedCourse)?.course_name || ""
 
   return (
     <div className="space-y-6">
@@ -135,17 +157,23 @@ export function Leaderboard({ userRole, userId }: LeaderboardProps) {
           <label htmlFor="course-select" className="text-sm font-medium text-foreground">
             Course:
           </label>
-          <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+          <Select value={selectedCourse} onValueChange={setSelectedCourse} disabled={isLoadingCourses}>
             <SelectTrigger id="course-select" className="w-[200px]">
-              <SelectValue placeholder="Select a course" />
+              <SelectValue placeholder={isLoadingCourses ? "Loading..." : "Select a course"} />
             </SelectTrigger>
-            <SelectContent>
-              {mockCourses.map((course) => (
-                <SelectItem key={course.code} value={course.code}>
-                  {course.code} - {course.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
+                         <SelectContent>
+               {availableCourses.length === 0 ? (
+                 <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                   No courses available
+                 </div>
+               ) : (
+                 availableCourses.map((course) => (
+                   <SelectItem key={course.course_code} value={course.course_code}>
+                     {course.course_code} - {course.course_name}
+                   </SelectItem>
+                 ))
+               )}
+             </SelectContent>
           </Select>
         </div>
       </div>
@@ -182,7 +210,7 @@ export function Leaderboard({ userRole, userId }: LeaderboardProps) {
               <TableBody>
                 {leaderboardData.map((entry) => (
                   <TableRow 
-                    key={`${entry.rank}-${entry.studentName}`}
+                    key={`${entry.rank}-${entry.display_name}`}
                     className={
                       entry.rank === 1 ? "bg-gradient-to-r from-yellow-50 to-yellow-100/50 border-l-4 border-l-yellow-400" :
                       entry.rank === 2 ? "bg-gradient-to-r from-slate-50 to-slate-100/50 border-l-4 border-l-slate-400" :
@@ -206,7 +234,7 @@ export function Leaderboard({ userRole, userId }: LeaderboardProps) {
                         <span className="font-medium">
                           {getDisplayName(entry)}
                         </span>
-                        {entry.isAnonymous && (
+                        {entry.is_anonymous && (
                           <span className="text-xs text-muted-foreground">
                             Anonymous User
                           </span>
@@ -216,7 +244,7 @@ export function Leaderboard({ userRole, userId }: LeaderboardProps) {
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end space-x-1">
                         <span className="font-semibold text-lg">
-                          {entry.points}
+                          {entry.total_points}
                         </span>
                         <span className="text-sm text-muted-foreground">pts</span>
                       </div>

@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth'
 
 const API_BASE_URL = "http://localhost:8000"
 
+
 // Types for Course operations
 export interface Course {
   course_code: string
@@ -311,6 +312,14 @@ export interface StudentSection {
   sec_number: number
 }
 
+// Leaderboard types
+export interface LeaderboardEntry {
+  display_name: string
+  total_points: number
+  is_anonymous: boolean
+  last_updated: string
+}
+
 // Student section assignment API functions
 export async function assignStudentSection(data: StudentAssignSectionRequest): Promise<StudentAssignSectionResponse> {
   try {
@@ -383,3 +392,139 @@ export async function getStudentSections(studentId: number): Promise<StudentSect
     throw new Error('Failed to fetch student sections')
   }
 }
+
+// Leaderboard API functions
+export async function getLeaderboard(courseCode: string): Promise<LeaderboardEntry[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/leaderboard/${courseCode}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch leaderboard: ${response.status} ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to the server. Please check your internet connection.')
+    }
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to fetch leaderboard')
+  }
+}
+
+// Student anonymity API functions
+export interface UpdateAnonymityRequest {
+  is_anonymous: boolean
+}
+
+export interface AnonymityStatus {
+  student_id: number
+  course_code: string
+  display_name: string
+  is_anonymous: boolean
+  anonymous_name: string
+  real_name: string
+  total_points: number
+  last_updated: string
+}
+
+export async function getStudentAnonymityStatus(
+  studentId: number,
+  courseCode: string
+): Promise<AnonymityStatus> {
+  try {
+    const currentUser = getCurrentUser()
+    if (!currentUser) {
+      throw new Error('User not authenticated. Please log in again.')
+    }
+
+    if (currentUser.role !== 'student') {
+      throw new Error('Only students can view their anonymity settings.')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/students/${studentId}/leaderboard/${courseCode}/anonymity`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User_ID': currentUser.user_id.toString(),
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      if (response.status === 404) {
+        throw new Error('Student or course not found.')
+      } else if (response.status >= 500) {
+        throw new Error('Server error. Please try again later.')
+      } else {
+        throw new Error(errorData.message || `Failed to fetch anonymity status: ${response.status} ${response.statusText}`)
+      }
+    }
+
+    return await response.json()
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to the server. Please check your internet connection.')
+    }
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to fetch anonymity status')
+  }
+}
+
+export async function updateStudentAnonymity(
+  studentId: number,
+  courseCode: string,
+  data: UpdateAnonymityRequest
+): Promise<void> {
+  try {
+    const currentUser = getCurrentUser()
+    if (!currentUser) {
+      throw new Error('User not authenticated. Please log in again.')
+    }
+
+    if (currentUser.role !== 'student') {
+      throw new Error('Only students can update their anonymity settings.')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/students/${studentId}/leaderboard/${courseCode}/anonymity`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User_ID': currentUser.user_id.toString(),
+      },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      if (response.status === 400) {
+        throw new Error(errorData.message || 'Invalid anonymity data. Please check your inputs.')
+      } else if (response.status === 404) {
+        throw new Error('Student or course not found.')
+      } else if (response.status >= 500) {
+        throw new Error('Server error. Please try again later.')
+      } else {
+        throw new Error(errorData.message || `Failed to update anonymity: ${response.status} ${response.statusText}`)
+      }
+    }
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to the server. Please check your internet connection.')
+    }
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to update anonymity')
+  }
+}
+
+console.log('updateStudentAnonymity function exported:', typeof updateStudentAnonymity)
