@@ -205,7 +205,7 @@ export default function FacultyAnnouncements() {
         content: apiAnn.content,
         type: apiAnn.type,
         createdAt: new Date(apiAnn.created_at).toLocaleDateString(),
-        instructor: `Prof. ${user?.name || 'Faculty'}`,
+        instructor: `${user?.name || 'Faculty'}`,
         courseCode: apiAnn.section_course_code,
         section: apiAnn.section_sec_number.toString(),
         deadline: apiAnn.deadline

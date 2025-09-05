@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { updateTaskStatus } from "@/lib/api/todos"
+import { ConfirmationDialog } from "@/components/confirmation-dialog"
+import { CheckCircle } from "lucide-react"
 
 interface TodoItemProps {
   todo_id: number
@@ -33,6 +36,7 @@ export function TodoItem({
 }: TodoItemProps) {
   const [checked, setChecked] = useState(status === "completed")
   const [isUpdating, setIsUpdating] = useState(false)
+  const [showConfirmation, setShowConfirmation] = useState(false)
 
   // Update checked state when status prop changes
   useEffect(() => {
@@ -52,6 +56,28 @@ export function TodoItem({
       return dueDate.getTime() < today.getTime()
     } catch {
       return false
+    }
+  }
+
+  const handleAssignmentCompletion = async () => {
+    if (!todo_id) {
+      console.error('Cannot update task: todo_id is undefined')
+      return
+    }
+    
+    setIsUpdating(true)
+    try {
+      const updatedTask = await updateTaskStatus(todo_id, "completed")
+      setChecked(true)
+      
+      // Notify parent component of the status change
+      onStatusChange?.(todo_id, "completed")
+      
+      console.log('Assignment completed:', updatedTask)
+    } catch (error) {
+      console.error('Failed to complete assignment:', error)
+    } finally {
+      setIsUpdating(false)
     }
   }
 
@@ -188,37 +214,74 @@ export function TodoItem({
   }
 
   return (
-    <div className={cn("flex items-center space-x-3 p-3 rounded-lg border", checked && "opacity-60")}>
-      <Checkbox 
-        id={todo_id?.toString() || `todo-${Math.random()}`} 
-        checked={checked} 
-        onCheckedChange={handleCheckedChange}
-        disabled={isUpdating}
-      />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center space-x-2 mb-1">
-          <p className={cn("text-sm font-medium", checked && "line-through text-muted-foreground")}>{title}</p>
-          {announcement_type && (
-            <Badge variant="secondary" className={getTypeColor()}>
-              {announcement_type}
-            </Badge>
-          )}
-          {getCourseDisplay() && (
-            <Badge variant="outline" className="text-xs">
-              {getCourseDisplay()}
-            </Badge>
-          )}
+    <>
+      <div className={cn("flex items-center space-x-3 p-3 rounded-lg border", checked && "opacity-60")}>
+        {announcement_type === "assignment" ? (
+          // Show Done button for assignments
+          <div className="flex-shrink-0">
+            {status === "completed" ? (
+              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-chart-4 text-background">
+                <CheckCircle className="h-4 w-4" />
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowConfirmation(true)}
+                disabled={isUpdating}
+                className="h-6 px-2 text-xs"
+              >
+                Done
+              </Button>
+            )}
+          </div>
+        ) : (
+          // Show checkbox for other task types
+          <Checkbox 
+            id={todo_id?.toString() || `todo-${Math.random()}`} 
+            checked={checked} 
+            onCheckedChange={handleCheckedChange}
+            disabled={isUpdating}
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center space-x-2 mb-1">
+            <p className={cn("text-sm font-medium", checked && "line-through text-muted-foreground")}>{title}</p>
+            {announcement_type && (
+              <Badge variant="secondary" className={getTypeColor()}>
+                {announcement_type}
+              </Badge>
+            )}
+            {getCourseDisplay() && (
+              <Badge variant="outline" className="text-xs">
+                {getCourseDisplay()}
+              </Badge>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            <span>Due: {formatDate(due_date)}</span>
+            {status !== "completed" && getDaysLeft(due_date) && (
+              <span className={`ml-2 font-medium ${getDaysLeftColor(due_date)}`}>
+                ({getDaysLeft(due_date)})
+              </span>
+            )}
+          </div>
         </div>
-        <div className="text-xs text-muted-foreground">
-          <span>Due: {formatDate(due_date)}</span>
-          {status !== "completed" && getDaysLeft(due_date) && (
-            <span className={`ml-2 font-medium ${getDaysLeftColor(due_date)}`}>
-              ({getDaysLeft(due_date)})
-            </span>
-          )}
-        </div>
+        <Badge className={getStatusColor()}>{status}</Badge>
       </div>
-      <Badge className={getStatusColor()}>{status}</Badge>
-    </div>
+
+      {/* Confirmation Dialog for Assignment Completion */}
+      <ConfirmationDialog
+        isOpen={showConfirmation}
+        onClose={() => setShowConfirmation(false)}
+        onConfirm={handleAssignmentCompletion}
+        title="Complete Assignment"
+        description={`Are you sure you want to mark "${title}" as completed? This action cannot be undone.`}
+        confirmText="Mark as Done"
+        cancelText="Cancel"
+        variant="default"
+        isLoading={isUpdating}
+      />
+    </>
   )
 }
