@@ -8,36 +8,20 @@ import { GradeTable } from "@/components/grade-table"
 import { ClassAnnouncements } from "@/components/class-announcements"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BookOpen, BarChart3, Megaphone } from "lucide-react"
+import { BookOpen, BarChart3, Megaphone, AlertCircle } from "lucide-react"
+import { getCurrentUser } from "@/lib/auth"
+import { getStudentSections, getSections, type StudentSection, type Section } from "@/lib/api/courses"
+import { getSectionAnnouncements, type Announcement } from "@/lib/api/announcements"
 
-// Mock data - in real app this would come from API
-const mockCourses = [
-  {
-    code: "CSE101",
-    name: "Introduction to Programming",
-    section: "A",
-    instructor: "Dr. Smith",
-  },
-  {
-    code: "CSE201",
-    name: "Database Systems",
-    section: "B",
-    instructor: "Prof. Johnson",
-  },
-  {
-    code: "CSE301",
-    name: "Data Structures",
-    section: "A",
-    instructor: "Dr. Williams",
-  },
-  {
-    code: "CSE401",
-    name: "Software Engineering",
-    section: "C",
-    instructor: "Prof. Brown",
-  },
-]
+// Interface for course data with instructor info
+interface CourseWithInstructor {
+  code: string
+  name: string
+  section: string
+  instructor: string
+}
 
+// Mock grades data - keeping as requested (no API integration)
 const mockGrades = {
   "CSE201-B": [
     {
@@ -99,49 +83,12 @@ const mockGrades = {
   ],
 }
 
-const mockAnnouncements = {
-  "CSE201-B": [
-    {
-      id: "1",
-      title: "Quiz 3 Scheduled",
-      content: "Quiz 3 on Normalization will be held next Tuesday. Please review chapters 7-8 from the textbook.",
-      type: "quiz" as const,
-      createdAt: "2 hours ago",
-      instructor: "Prof. Johnson",
-    },
-    {
-      id: "2",
-      title: "Assignment 2 Released",
-      content:
-        "Assignment 2 on Query Optimization is now available. Due date is February 28th. Please check the course portal for detailed requirements.",
-      type: "assignment" as const,
-      createdAt: "1 day ago",
-      instructor: "Prof. Johnson",
-    },
-    {
-      id: "3",
-      title: "Office Hours Update",
-      content: "My office hours for this week have been moved to Thursday 2-4 PM due to a faculty meeting.",
-      type: "general" as const,
-      createdAt: "3 days ago",
-      instructor: "Prof. Johnson",
-    },
-  ],
-  "CSE301-A": [
-    {
-      id: "4",
-      title: "Lab Session Rescheduled",
-      content:
-        "Tomorrow's lab session has been moved to Friday 10 AM in Lab 2. We will be covering tree traversal algorithms.",
-      type: "general" as const,
-      createdAt: "5 hours ago",
-      instructor: "Dr. Williams",
-    },
-  ],
-}
-
 export default function StudentClasses() {
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
+  const [courses, setCourses] = useState<CourseWithInstructor[]>([])
+  const [announcements, setAnnouncements] = useState<Record<string, Announcement[]>>({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const searchParams = useSearchParams()
 
   useEffect(() => {
@@ -151,13 +98,136 @@ export default function StudentClasses() {
     }
   }, [searchParams])
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const user = getCurrentUser()
+        if (!user) {
+          setError('User not authenticated')
+          return
+        }
+
+        // Fetch student's enrolled sections
+        const studentSections = await getStudentSections(user.user_id)
+        
+        // Fetch all sections to get course names and instructor info
+        const allSections = await getSections()
+        
+        // Create course list with instructor info
+        const courseList: CourseWithInstructor[] = studentSections.map(studentSection => {
+          const sectionInfo = allSections.find(s => 
+            s.course_code === studentSection.course_code && 
+            s.sec_number === studentSection.sec_number
+          )
+          
+          return {
+            code: studentSection.course_code,
+            name: sectionInfo?.course_name || studentSection.course_code,
+            section: String(studentSection.sec_number),
+            instructor: `Instructor ${studentSection.sec_number}` // Placeholder - would need faculty info
+          }
+        })
+
+        setCourses(courseList)
+
+        // Fetch announcements for each course
+        const announcementsData: Record<string, Announcement[]> = {}
+        for (const course of courseList) {
+          try {
+            const courseAnnouncements = await getSectionAnnouncements(course.code, parseInt(course.section))
+            announcementsData[`${course.code}-${course.section}`] = courseAnnouncements
+          } catch (err) {
+            console.error(`Failed to fetch announcements for ${course.code}-${course.section}:`, err)
+            announcementsData[`${course.code}-${course.section}`] = []
+          }
+        }
+        setAnnouncements(announcementsData)
+
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load courses')
+        console.error('Error fetching courses:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
   const selectedCourseData = selectedCourse
-    ? mockCourses.find((c) => `${c.code}-${c.section}` === selectedCourse)
+    ? courses.find((c) => `${c.code}-${c.section}` === selectedCourse)
     : null
   const courseGrades = selectedCourse ? mockGrades[selectedCourse as keyof typeof mockGrades] || [] : []
   const courseAnnouncements = selectedCourse
-    ? mockAnnouncements[selectedCourse as keyof typeof mockAnnouncements] || []
+    ? announcements[selectedCourse] || []
     : []
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
+    
+    if (diffInHours < 1) return 'Just now'
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`
+    const diffInDays = Math.floor(diffInHours / 24)
+    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
+  }
+
+  // Transform API announcements to match component expectations
+  const transformedAnnouncements = courseAnnouncements.map(announcement => ({
+    id: announcement.announcement_id.toString(),
+    title: announcement.title,
+    content: announcement.content,
+    type: announcement.type,
+    createdAt: formatTimeAgo(announcement.created_at),
+    instructor: `Instructor ${announcement.section_sec_number}` // Placeholder
+  }))
+
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-background">
+        <StudentSidebar />
+        <main className="flex-1 overflow-auto">
+          <div className="p-6 space-y-6">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading courses...</p>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-screen bg-background">
+        <StudentSidebar />
+        <main className="flex-1 overflow-auto">
+          <div className="p-6 space-y-6">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">Error Loading Courses</h3>
+                <p className="text-muted-foreground mb-4">{error}</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -182,7 +252,7 @@ export default function StudentClasses() {
             </CardHeader>
             <CardContent>
               <CourseSelector
-                courses={mockCourses}
+                courses={courses}
                 selectedCourse={selectedCourse}
                 onCourseChange={setSelectedCourse}
               />
@@ -224,7 +294,7 @@ export default function StudentClasses() {
                     <CardDescription>Latest announcements from {selectedCourseData.instructor}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ClassAnnouncements announcements={courseAnnouncements} courseCode={selectedCourseData.code} />
+                    <ClassAnnouncements announcements={transformedAnnouncements} courseCode={selectedCourseData.code} />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -237,10 +307,21 @@ export default function StudentClasses() {
               <CardContent className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">Select a Course</h3>
-                  <p className="text-muted-foreground">
-                    Choose a course from the dropdown above to view grades and announcements.
-                  </p>
+                  {courses.length === 0 ? (
+                    <>
+                      <h3 className="text-lg font-semibold text-foreground mb-2">No Enrolled Courses</h3>
+                      <p className="text-muted-foreground">
+                        You are not currently enrolled in any courses. Contact your advisor to enroll in courses.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-lg font-semibold text-foreground mb-2">Select a Course</h3>
+                      <p className="text-muted-foreground">
+                        Choose a course from the dropdown above to view grades and announcements.
+                      </p>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>

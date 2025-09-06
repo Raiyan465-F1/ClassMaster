@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
-import { clearCurrentUser } from "@/lib/auth"
+import { clearCurrentUser, getCurrentUser } from "@/lib/auth"
+import { getStudentSections, getSections, getCourses, type StudentSection, type Section, type Course } from "@/lib/api/courses"
 import {
   LayoutDashboard,
   BookOpen,
@@ -20,6 +21,7 @@ import {
   GraduationCap,
   Trophy,
   User,
+  AlertCircle,
 } from "lucide-react"
 
 const sidebarItems = [
@@ -55,17 +57,63 @@ const sidebarItems = [
   },
 ]
 
-const studentCourses = [
-  { id: 1, code: "CSE101", name: "Introduction to Programming", section: "A" },
-  { id: 2, code: "CSE201", name: "Database Systems", section: "B" },
-  { id: 3, code: "CSE301", name: "Data Structures", section: "A" },
-  { id: 4, code: "CSE401", name: "Software Engineering", section: "C" },
-]
+// Interface for course data with instructor info
+interface CourseWithInstructor {
+  id: string
+  code: string
+  name: string
+  section: string
+}
 
 export function StudentSidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [classesExpanded, setClassesExpanded] = useState(true)
+  const [studentCourses, setStudentCourses] = useState<CourseWithInstructor[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const pathname = usePathname()
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const user = getCurrentUser()
+        if (!user) {
+          setError('User not authenticated')
+          return
+        }
+
+        // Fetch student's enrolled sections
+        const studentSections = await getStudentSections(user.user_id)
+        
+        // Fetch all courses to get course names
+        const allCourses = await getCourses()
+        
+        // Create course list
+        const courseList: CourseWithInstructor[] = studentSections.map((studentSection) => {
+          const courseInfo = allCourses.find(c => c.course_code === studentSection.course_code)
+          
+          return {
+            id: `${studentSection.course_code}-${studentSection.sec_number}`,
+            code: studentSection.course_code,
+            name: courseInfo?.course_name || studentSection.course_code,
+            section: String(studentSection.sec_number)
+          }
+        })
+
+        setStudentCourses(courseList)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load courses')
+        console.error('Error fetching courses:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCourses()
+  }, [])
 
   const handleSignOut = () => {
     clearCurrentUser()
@@ -151,32 +199,48 @@ export function StudentSidebar() {
 
             {classesExpanded && !collapsed && (
               <div className="ml-4 space-y-1">
-                {studentCourses.map((course) => {
-                  const courseKey = `${course.code}-${course.section}`
-                  const isActive = pathname.includes("/student/classes") && pathname.includes(courseKey.toLowerCase())
+                {loading ? (
+                  <div className="flex items-center justify-center py-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-sidebar-primary"></div>
+                    <span className="ml-2 text-xs text-sidebar-muted-foreground">Loading...</span>
+                  </div>
+                ) : error ? (
+                  <div className="flex items-center py-2 text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    <span>Failed to load courses</span>
+                  </div>
+                ) : studentCourses.length === 0 ? (
+                  <div className="text-xs text-sidebar-muted-foreground py-2">
+                    No enrolled courses
+                  </div>
+                ) : (
+                  studentCourses.map((course) => {
+                    const courseKey = `${course.code}-${course.section}`
+                    const isActive = pathname.includes("/student/classes") && pathname.includes(courseKey.toLowerCase())
 
-                  return (
-                    <Link key={course.id} href={`/student/classes?course=${courseKey}`}>
-                      <Button
-                        variant={isActive ? "default" : "ghost"}
-                        size="sm"
-                        className={cn(
-                          "w-full justify-start text-xs",
-                          isActive
-                            ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
-                            : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                        )}
-                      >
-                        <div className="flex flex-col items-start">
-                          <span className="font-medium">{course.code}</span>
-                          <span className="text-xs opacity-75 truncate max-w-[140px]">
-                            {course.name} (Sec {course.section})
-                          </span>
-                        </div>
-                      </Button>
-                    </Link>
-                  )
-                })}
+                    return (
+                      <Link key={course.id} href={`/student/classes?course=${courseKey}`}>
+                        <Button
+                          variant={isActive ? "default" : "ghost"}
+                          size="sm"
+                          className={cn(
+                            "w-full justify-start text-xs",
+                            isActive
+                              ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+                              : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                          )}
+                        >
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">{course.code}</span>
+                            <span className="text-xs opacity-75 truncate max-w-[140px]">
+                              {course.name} (Sec {course.section})
+                            </span>
+                          </div>
+                        </Button>
+                      </Link>
+                    )
+                  })
+                )}
               </div>
             )}
           </div>
