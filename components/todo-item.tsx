@@ -207,7 +207,7 @@ export function TodoItem({
   }
 
   const getCourseDisplay = () => {
-    if (course_code && section_number) {
+    if (course_code && course_code !== null && section_number !== null) {
       return `${course_code}-${section_number}`
     }
     return null

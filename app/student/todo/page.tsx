@@ -85,14 +85,14 @@ export default function StudentTodo() {
   // Get unique courses for filter dropdown
   const availableCourses = ["All Courses", ...Array.from(new Set(
     todos
-      .filter(todo => todo.course_code && todo.section_number)
+      .filter(todo => todo.course_code && todo.course_code !== null && todo.section_number !== null)
       .map(todo => `${todo.course_code}-${todo.section_number}`)
   ))]
 
   const filteredTodos = todos.filter((todo) => {
     const matchesStatus = filterStatus === "all" || todo.status === filterStatus
     const matchesType = filterType === "all" || todo.announcement_type === filterType
-    const courseDisplay = todo.course_code && todo.section_number ? `${todo.course_code}-${todo.section_number}` : null
+    const courseDisplay = todo.course_code && todo.course_code !== null && todo.section_number !== null ? `${todo.course_code}-${todo.section_number}` : null
     const matchesCourse = filterCourse === "All Courses" || courseDisplay === filterCourse
     const matchesSearch = todo.title.toLowerCase().includes(searchTerm.toLowerCase())
 
