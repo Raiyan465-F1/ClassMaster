@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Filter, Search, CheckSquare, AlertCircle } from "lucide-react"
 import { getStudentTasks, StudentTask } from "@/lib/api/todos"
 import { getCurrentUser } from "@/lib/auth"
+import { type FacultyTask } from "@/lib/api/faculty-tasks"
 
 
 export default function StudentTodo() {
@@ -47,9 +48,9 @@ export default function StudentTodo() {
     fetchTodos()
   }, []) // Empty dependency array - only run once on mount
 
-  const handleAddTodo = (newTask: StudentTask) => {
+  const handleAddTodo = (newTask: StudentTask | FacultyTask) => {
     // Add the new task to the existing todos list
-    setTodos(prevTodos => [newTask, ...prevTodos])
+    setTodos(prevTodos => [newTask as StudentTask, ...prevTodos])
   }
 
   const handleStatusChange = (todoId: number, newStatus: "pending" | "completed" | "delayed") => {
@@ -228,7 +229,7 @@ export default function StudentTodo() {
           {/* Add Manual Todo */}
           <Card>
             <CardContent className="pt-6">
-              <TodoDialog onAddTodo={handleAddTodo} />
+              <TodoDialog onAddTodo={handleAddTodo} userRole="student" />
             </CardContent>
           </Card>
 

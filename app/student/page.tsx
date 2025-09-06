@@ -252,7 +252,7 @@ export default function StudentDashboard() {
                     ))}
                   </div>
                 )}
-                <TodoDialog onAddTodo={handleAddTodo} />
+                <TodoDialog onAddTodo={handleAddTodo} userRole="student" />
               </div>
             </DashboardCard>
 

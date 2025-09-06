@@ -148,7 +148,7 @@ export default function FacultyDashboard() {
                     </div>
                   </div>
                 ))}
-                <TodoDialog onAddTodo={handleAddTask} />
+                <TodoDialog onAddTodo={handleAddTask} userRole="faculty" />
               </div>
             </DashboardCard>
 

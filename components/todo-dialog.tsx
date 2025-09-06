@@ -17,15 +17,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus, Loader2 } from "lucide-react"
 import { createTask, StudentTask } from "@/lib/api/todos"
+import { createFacultyTask, FacultyTask } from "@/lib/api/faculty-tasks"
 import { getCurrentUser } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
 
 interface TodoDialogProps {
   trigger?: React.ReactNode
-  onAddTodo?: (todo: StudentTask) => void
+  onAddTodo?: (todo: StudentTask | FacultyTask) => void
+  userRole?: 'student' | 'faculty'
 }
 
-export function TodoDialog({ trigger, onAddTodo }: TodoDialogProps) {
+export function TodoDialog({ trigger, onAddTodo, userRole }: TodoDialogProps) {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [dueDate, setDueDate] = useState("")
@@ -51,8 +53,16 @@ export function TodoDialog({ trigger, onAddTodo }: TodoDialogProps) {
     if (!title) return
 
     const currentUser = getCurrentUser()
-    if (!currentUser || currentUser.role !== 'student') {
-      setError('User not authenticated or not a student')
+    if (!currentUser) {
+      setError('User not authenticated')
+      return
+    }
+
+    // Determine user role - use prop if provided, otherwise check user role
+    const role = userRole || currentUser.role
+    
+    if (role !== 'student' && role !== 'faculty') {
+      setError('Invalid user role')
       return
     }
 
@@ -60,10 +70,19 @@ export function TodoDialog({ trigger, onAddTodo }: TodoDialogProps) {
     setError(null)
 
     try {
-      const newTask = await createTask(currentUser.user_id, {
-        title,
-        due_date: dueDate || null,
-      })
+      let newTask: StudentTask | FacultyTask
+      
+      if (role === 'student') {
+        newTask = await createTask(currentUser.user_id, {
+          title,
+          due_date: dueDate || null,
+        })
+      } else {
+        newTask = await createFacultyTask(currentUser.user_id, {
+          title,
+          due_date: dueDate || new Date().toISOString().split('T')[0],
+        })
+      }
       
       // Call the callback with the created task
       onAddTodo?.(newTask)

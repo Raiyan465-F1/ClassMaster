@@ -1,83 +1,179 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FacultySidebar } from "@/components/faculty-sidebar"
 import { TodoDialog } from "@/components/todo-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckSquare, Filter, Clock, BookOpen } from "lucide-react"
-
-// Mock data
-const mockTasks = [
-  {
-    id: "1",
-    title: "Grade Quiz 2 - Database Systems",
-    status: "pending" as const,
-    dueDate: "2024-02-16",
-    courseCode: "CSE201",
-    section: "B",
-    type: "grading" as const,
-    priority: "high" as const,
-  },
-  {
-    id: "2",
-    title: "Prepare Midterm Exam - Data Structures",
-    status: "delayed" as const,
-    dueDate: "2024-02-14",
-    courseCode: "CSE301",
-    section: "A",
-    type: "preparation" as const,
-    priority: "high" as const,
-  },
-  {
-    id: "3",
-    title: "Submit Final Grades - Software Engineering",
-    status: "completed" as const,
-    dueDate: "2024-02-12",
-    courseCode: "CSE401",
-    section: "C",
-    type: "administrative" as const,
-    priority: "medium" as const,
-  },
-  {
-    id: "4",
-    title: "Review Assignment Submissions",
-    status: "pending" as const,
-    dueDate: "2024-02-20",
-    courseCode: "CSE201",
-    section: "B",
-    type: "grading" as const,
-    priority: "medium" as const,
-  },
-  {
-    id: "5",
-    title: "Prepare Lab Materials - Tree Algorithms",
-    status: "pending" as const,
-    dueDate: "2024-02-18",
-    courseCode: "CSE301",
-    section: "A",
-    type: "preparation" as const,
-    priority: "low" as const,
-  },
-]
-
-const mockCourses = ["All Courses", "CSE201-B", "CSE301-A", "CSE401-C"]
+import { CheckSquare, Filter, Clock, BookOpen, AlertCircle, Lock } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { getCurrentUser } from "@/lib/auth"
+import { getFacultyTasks, createFacultyTask, updateFacultyTaskStatus, type FacultyTask, type CreateFacultyTaskRequest, type UpdateFacultyTaskRequest } from "@/lib/api"
 
 export default function FacultyTasks() {
+  const [tasks, setTasks] = useState<FacultyTask[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [updatingTasks, setUpdatingTasks] = useState<Set<number>>(new Set())
   const [filterStatus, setFilterStatus] = useState("all")
   const [filterType, setFilterType] = useState("all")
   const [filterCourse, setFilterCourse] = useState("All Courses")
 
-  const handleAddTask = (task: any) => {
-    console.log("[v0] New faculty task added:", task)
-    // In real app, this would call an API to save the task
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const user = getCurrentUser()
+        if (!user) {
+          setError('User not authenticated')
+          return
+        }
+
+        const data = await getFacultyTasks(user.user_id)
+        setTasks(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load tasks')
+        console.error('Error fetching tasks:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchTasks()
+  }, [])
+
+  // Get unique courses from tasks for filter dropdown
+  const availableCourses = ["All Courses", ...Array.from(new Set(
+    tasks
+      .filter(task => task.course_code && task.section_number)
+      .map(task => `${task.course_code}-${task.section_number}`)
+  ))]
+
+  const handleAddTask = async (task: any) => {
+    try {
+      const user = getCurrentUser()
+      if (!user) {
+        console.error('User not authenticated')
+        return
+      }
+
+      // Transform the task data to match the API format
+      const taskData: CreateFacultyTaskRequest = {
+        title: task.title,
+        due_date: task.dueDate || new Date().toISOString().split('T')[0] // Use provided date or today
+      }
+
+      const newTask = await createFacultyTask(user.user_id, taskData)
+      
+      // Add the new task to the local state
+      setTasks(prevTasks => [newTask, ...prevTasks])
+      
+      console.log('Faculty task created successfully:', newTask)
+    } catch (error) {
+      console.error('Failed to create faculty task:', error)
+      // You might want to show a toast notification here
+    }
   }
 
-  const filteredTasks = mockTasks.filter((task) => {
+  const handleTaskToggle = async (taskId: number, checked: boolean) => {
+    try {
+      const user = getCurrentUser()
+      if (!user) {
+        console.error('User not authenticated')
+        return
+      }
+
+      // Find the current task to check its type and current status
+      const currentTask = tasks.find(task => task.todo_id === taskId)
+      if (!currentTask) {
+        console.error('Task not found')
+        return
+      }
+
+      // Prevent unchecking (undoing) completed quiz/assignment tasks
+      if (!checked && currentTask.status === 'completed' && 
+          (currentTask.announcement_type === 'quiz' || currentTask.announcement_type === 'assignment')) {
+        console.log('Cannot undo completed quiz/assignment tasks')
+        return
+      }
+
+      // Add task to updating set
+      setUpdatingTasks(prev => new Set(prev).add(taskId))
+
+      const newStatus: "pending" | "completed" | "delayed" = checked ? 'completed' : 'pending'
+      
+      // Update the task via API
+      const updatedTask = await updateFacultyTaskStatus(user.user_id, taskId, { status: newStatus })
+      
+      // Update local state with the updated task
+      setTasks(prevTasks => 
+        prevTasks.map(task => 
+          task.todo_id === taskId ? updatedTask : task
+        )
+      )
+      
+      console.log(`Task ${taskId} updated to ${newStatus}:`, updatedTask)
+    } catch (error) {
+      console.error('Failed to update task status:', error)
+      // You might want to show a toast notification here
+    } finally {
+      // Remove task from updating set
+      setUpdatingTasks(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(taskId)
+        return newSet
+      })
+    }
+  }
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'No due date'
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    })
+  }
+
+  const getTaskType = (task: FacultyTask) => {
+    if (task.announcement_type) {
+      switch (task.announcement_type) {
+        case 'quiz':
+          return 'grading'
+        case 'assignment':
+          return 'grading'
+        default:
+          return 'preparation'
+      }
+    }
+    return 'administrative'
+  }
+
+  const getTaskPriority = (task: FacultyTask) => {
+    if (task.announcement_type === 'quiz' || task.announcement_type === 'assignment') {
+      return 'high'
+    }
+    if (task.due_date) {
+      const dueDate = new Date(task.due_date)
+      const now = new Date()
+      const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      
+      if (daysUntilDue <= 1) return 'high'
+      if (daysUntilDue <= 3) return 'medium'
+    }
+    return 'low'
+  }
+
+  const filteredTasks = tasks.filter((task) => {
     const matchesStatus = filterStatus === "all" || task.status === filterStatus
-    const matchesType = filterType === "all" || task.type === filterType
-    const matchesCourse = filterCourse === "All Courses" || `${task.courseCode}-${task.section}` === filterCourse
+    const taskType = getTaskType(task)
+    const matchesType = filterType === "all" || taskType === filterType
+    const courseKey = task.course_code && task.section_number ? `${task.course_code}-${task.section_number}` : null
+    const matchesCourse = filterCourse === "All Courses" || courseKey === filterCourse
 
     return matchesStatus && matchesType && matchesCourse
   })
@@ -119,13 +215,56 @@ export default function FacultyTasks() {
 
   const getStatusCounts = () => {
     return {
-      pending: mockTasks.filter((t) => t.status === "pending").length,
-      completed: mockTasks.filter((t) => t.status === "completed").length,
-      delayed: mockTasks.filter((t) => t.status === "delayed").length,
+      pending: tasks.filter((t) => t.status === "pending").length,
+      completed: tasks.filter((t) => t.status === "completed").length,
+      delayed: tasks.filter((t) => t.status === "delayed").length,
     }
   }
 
   const statusCounts = getStatusCounts()
+
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-background">
+        <FacultySidebar />
+        <main className="flex-1 overflow-auto">
+          <div className="p-6 space-y-6">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading tasks...</p>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-screen bg-background">
+        <FacultySidebar />
+        <main className="flex-1 overflow-auto">
+          <div className="p-6 space-y-6">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">Error Loading Tasks</h3>
+                <p className="text-muted-foreground mb-4">{error}</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -218,7 +357,7 @@ export default function FacultyTasks() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockCourses.map((course) => (
+                      {availableCourses.map((course) => (
                         <SelectItem key={course} value={course}>
                           {course}
                         </SelectItem>
@@ -233,7 +372,7 @@ export default function FacultyTasks() {
           {/* Add Manual Task */}
           <Card>
             <CardContent className="pt-6">
-              <TodoDialog onAddTodo={handleAddTask} />
+              <TodoDialog onAddTodo={handleAddTask} userRole="faculty" />
             </CardContent>
           </Card>
 
@@ -252,38 +391,70 @@ export default function FacultyTasks() {
                 </CardContent>
               </Card>
             ) : (
-              filteredTasks.map((task) => (
-                <Card key={task.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-3">
-                        <span className="text-lg">{getTypeIcon(task.type)}</span>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-foreground mb-1">{task.title}</h3>
-                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                            <span className="flex items-center space-x-1">
-                              <BookOpen className="h-3 w-3" />
-                              <span>
-                                {task.courseCode}-{task.section}
+              filteredTasks.map((task) => {
+                const taskType = getTaskType(task)
+                const taskPriority = getTaskPriority(task)
+                const courseKey = task.course_code && task.section_number ? `${task.course_code}-${task.section_number}` : null
+                
+                return (
+                  <Card key={task.todo_id} className="hover:shadow-md transition-shadow pt-2">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-3">
+                          <Checkbox 
+                            id={`task-${task.todo_id}`}
+                            checked={task.status === 'completed'}
+                            onCheckedChange={(checked) => handleTaskToggle(task.todo_id, checked as boolean)}
+                            disabled={
+                              updatingTasks.has(task.todo_id) || 
+                              (task.status === 'completed' && 
+                               (task.announcement_type === 'quiz' || task.announcement_type === 'assignment'))
+                            }
+                            className="mt-1 flex-shrink-0 border-2 border-muted-foreground/40 bg-background hover:border-muted-foreground/60 size-5 shadow-sm transition-all disabled:opacity-50"
+                          />
+                          <span className="text-lg">{getTypeIcon(taskType)}</span>
+                          <div className="flex-1">
+                            <h3 className={`font-semibold text-foreground mb-1 ${task.status === 'completed' ? 'line-through opacity-60' : ''}`}>
+                              {task.title}
+                            </h3>
+                            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                              {courseKey && (
+                                <span className="flex items-center space-x-1">
+                                  <BookOpen className="h-3 w-3" />
+                                  <span>{courseKey}</span>
+                                </span>
+                              )}
+                              <span className="flex items-center space-x-1">
+                                <Clock className="h-3 w-3" />
+                                <span>Due: {formatDate(task.due_date)}</span>
                               </span>
-                            </span>
-                            <span className="flex items-center space-x-1">
-                              <Clock className="h-3 w-3" />
-                              <span>Due: {task.dueDate}</span>
-                            </span>
+                            </div>
+                            {task.announcement_title && (
+                              <div className="mt-2 text-sm text-muted-foreground">
+                                <span className="font-medium">Related: </span>
+                                <span>{task.announcement_title}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline" className={getPriorityColor(taskPriority)}>
+                            {taskPriority}
+                          </Badge>
+                          <Badge className={getStatusColor(task.status)}>{task.status}</Badge>
+                          {task.status === 'completed' && 
+                           (task.announcement_type === 'quiz' || task.announcement_type === 'assignment') && (
+                            <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                              <Lock className="h-3 w-3" />
+                              <span>Locked</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline" className={getPriorityColor(task.priority)}>
-                          {task.priority}
-                        </Badge>
-                        <Badge className={getStatusColor(task.status)}>{task.status}</Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                )
+              })
             )}
           </div>
         </div>
