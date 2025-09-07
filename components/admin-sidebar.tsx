@@ -22,35 +22,10 @@ import {
 
 const sidebarItems = [
   {
-    title: "Dashboard",
-    href: "/admin",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Manage Students",
-    href: "/admin/students",
-    icon: Users,
-  },
-  {
-    title: "Manage Faculty",
-    href: "/admin/faculty",
-    icon: UserPlus,
-  },
-  {
     title: "Course Sections",
     href: "/admin/sections",
     icon: BookOpen,
-  },
-  {
-    title: "Reports",
-    href: "/admin/reports",
-    icon: BarChart3,
-  },
-  {
-    title: "System Settings",
-    href: "/admin/settings",
-    icon: Settings,
-  },
+  }
 ]
 
 export function AdminSidebar() {
