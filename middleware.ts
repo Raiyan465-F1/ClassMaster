@@ -56,12 +56,16 @@ export function middleware(request: NextRequest) {
       // Check role-based access
       if (pathname.startsWith('/student') && userData.role !== 'student') {
         // Redirect to appropriate dashboard based on role
-        const redirectUrl = new URL(`/${userData.role}`, request.url)
+        const redirectUrl = userData.role === 'admin' 
+          ? new URL('/admin/sections', request.url)
+          : new URL(`/${userData.role}`, request.url)
         return NextResponse.redirect(redirectUrl)
       }
       
       if (pathname.startsWith('/faculty') && userData.role !== 'faculty') {
-        const redirectUrl = new URL(`/${userData.role}`, request.url)
+        const redirectUrl = userData.role === 'admin' 
+          ? new URL('/admin/sections', request.url)
+          : new URL(`/${userData.role}`, request.url)
         return NextResponse.redirect(redirectUrl)
       }
       
@@ -87,7 +91,9 @@ export function middleware(request: NextRequest) {
         const userData = JSON.parse(userCookie.value)
         if (userData.user_id && userData.role) {
           // Redirect to appropriate dashboard
-          const dashboardUrl = new URL(`/${userData.role}`, request.url)
+          const dashboardUrl = userData.role === 'admin' 
+            ? new URL('/admin/sections', request.url)
+            : new URL(`/${userData.role}`, request.url)
           return NextResponse.redirect(dashboardUrl)
         }
       } catch (error) {

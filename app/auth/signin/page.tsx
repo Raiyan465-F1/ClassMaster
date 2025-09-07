@@ -66,7 +66,7 @@ export default function SignInPage() {
            router.push("/faculty")
            break
          case "admin":
-           router.push("/admin")
+           router.push("/admin/sections")
            break
          default:
            toast.error("Unable to determine user role")
