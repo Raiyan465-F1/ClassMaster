@@ -12,6 +12,7 @@ import { BookOpen, BarChart3, Megaphone, AlertCircle } from "lucide-react"
 import { getCurrentUser } from "@/lib/auth"
 import { getStudentSections, getSections, type StudentSection, type Section } from "@/lib/api/courses"
 import { getSectionAnnouncements, type Announcement } from "@/lib/api/announcements"
+import { getMyGrades, type Grade } from "@/lib/api"
 
 // Interface for course data with instructor info
 interface CourseWithInstructor {
@@ -87,7 +88,9 @@ export default function StudentClasses() {
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
   const [courses, setCourses] = useState<CourseWithInstructor[]>([])
   const [announcements, setAnnouncements] = useState<Record<string, Announcement[]>>({})
+  const [grades, setGrades] = useState<Record<string, Grade[]>>({})
   const [loading, setLoading] = useState(true)
+  const [gradesLoading, setGradesLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const searchParams = useSearchParams()
 
@@ -97,6 +100,39 @@ export default function StudentClasses() {
       setSelectedCourse(courseParam)
     }
   }, [searchParams])
+
+  // Fetch grades when course is selected
+  useEffect(() => {
+    const fetchGrades = async () => {
+      if (!selectedCourse) {
+        return
+      }
+
+      const courseData = courses.find((c) => `${c.code}-${c.section}` === selectedCourse)
+      if (!courseData) {
+        return
+      }
+
+      try {
+        setGradesLoading(true)
+        const courseGrades = await getMyGrades(courseData.code, parseInt(courseData.section))
+        setGrades(prev => ({
+          ...prev,
+          [selectedCourse]: courseGrades
+        }))
+      } catch (err) {
+        console.error('Failed to fetch grades:', err)
+        setGrades(prev => ({
+          ...prev,
+          [selectedCourse]: []
+        }))
+      } finally {
+        setGradesLoading(false)
+      }
+    }
+
+    fetchGrades()
+  }, [selectedCourse, courses])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -164,6 +200,24 @@ export default function StudentClasses() {
   const courseAnnouncements = selectedCourse
     ? announcements[selectedCourse] || []
     : []
+
+  // Convert API grades to GradeTable format
+  const apiGrades = selectedCourse ? grades[selectedCourse] || [] : []
+  const convertedGrades = apiGrades.map((grade, index) => ({
+    id: `${grade.student_id}-${grade.grade_type}-${index}`,
+    studentId: grade.student_id.toString(),
+    studentName: "You", // Student viewing their own grades
+    type: grade.grade_type.toLowerCase().includes('quiz') ? 'quiz' as const :
+          grade.grade_type.toLowerCase().includes('assignment') ? 'assignment' as const :
+          grade.grade_type.toLowerCase().includes('midterm') ? 'midterm' as const :
+          grade.grade_type.toLowerCase().includes('final') ? 'final' as const :
+          'assignment' as const,
+    title: grade.grade_type,
+    marks: grade.marks,
+    totalMarks: 100, // Default to 100, could be enhanced later
+    date: new Date().toISOString().split('T')[0], // Current date as default
+    percentage: grade.marks // Assuming marks are already percentages
+  }))
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString)
@@ -282,7 +336,20 @@ export default function StudentClasses() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <GradeTable grades={courseGrades} courseCode={selectedCourseData.code} />
+                    {gradesLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        <span className="ml-2 text-muted-foreground">Loading grades...</span>
+                      </div>
+                    ) : convertedGrades.length === 0 ? (
+                      <div className="text-center py-8">
+                        <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">No grades recorded yet.</p>
+                        <p className="text-sm text-muted-foreground">Your instructor will add grades as they become available.</p>
+                      </div>
+                    ) : (
+                      <GradeTable grades={convertedGrades} courseCode={selectedCourseData.code} />
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

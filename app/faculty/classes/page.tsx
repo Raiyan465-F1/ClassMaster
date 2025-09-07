@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookOpen, BarChart3, Users, BarChart } from "lucide-react"
 import { getCurrentUser } from "@/lib/auth"
-import { getFacultySections, getSections, getCourses, getSectionStudents, type SectionStudent } from "@/lib/api"
+import { getFacultySections, getSections, getCourses, getSectionStudents, getSectionGrades, createOrUpdateGrade, type SectionStudent, type Grade } from "@/lib/api"
 
 // Interface for faculty courses with sections
 interface FacultyCourseWithSections {
@@ -56,8 +56,10 @@ export default function FacultyClasses() {
   const [selectedSection, setSelectedSection] = useState<string | null>(null)
   const [facultyCourses, setFacultyCourses] = useState<FacultyCourseWithSections[]>([])
   const [students, setStudents] = useState<SectionStudent[]>([])
+  const [grades, setGrades] = useState<Grade[]>([])
   const [loading, setLoading] = useState(true)
   const [studentsLoading, setStudentsLoading] = useState(false)
+  const [gradesLoading, setGradesLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const searchParams = useSearchParams()
 
@@ -152,13 +154,72 @@ export default function FacultyClasses() {
     fetchStudents()
   }, [selectedCourse, selectedSection])
 
+  // Fetch grades when course and section are selected
+  useEffect(() => {
+    const fetchGrades = async () => {
+      if (!selectedCourse || !selectedSection) {
+        setGrades([])
+        return
+      }
+
+      try {
+        setGradesLoading(true)
+        const sectionGrades = await getSectionGrades(selectedCourse, parseInt(selectedSection))
+        setGrades(sectionGrades)
+      } catch (err) {
+        console.error('Failed to fetch grades:', err)
+        setGrades([])
+      } finally {
+        setGradesLoading(false)
+      }
+    }
+
+    fetchGrades()
+  }, [selectedCourse, selectedSection])
+
   const selectedCourseData = selectedCourse ? facultyCourses.find((c) => c.code === selectedCourse) : null
   const courseKey = selectedCourse && selectedSection ? `${selectedCourse}-${selectedSection}` : null
-  const grades = courseKey ? mockGrades[courseKey as keyof typeof mockGrades] || [] : []
+  const mockGradesData = courseKey ? mockGrades[courseKey as keyof typeof mockGrades] || [] : []
+
+  // Convert API grades to GradeTable format
+  const convertedGrades = grades.map((grade, index) => ({
+    id: `${grade.student_id}-${grade.grade_type}-${index}`,
+    studentId: grade.student_id.toString(),
+    studentName: students.find(s => s.student_id === grade.student_id)?.name || `Student ${grade.student_id}`,
+    type: grade.grade_type.toLowerCase().includes('quiz') ? 'quiz' as const :
+          grade.grade_type.toLowerCase().includes('assignment') ? 'assignment' as const :
+          grade.grade_type.toLowerCase().includes('midterm') ? 'midterm' as const :
+          grade.grade_type.toLowerCase().includes('final') ? 'final' as const :
+          'assignment' as const,
+    title: grade.grade_type,
+    marks: grade.marks,
+    totalMarks: 100, // Default to 100, could be enhanced later
+    date: new Date().toISOString().split('T')[0], // Current date as default
+    percentage: grade.marks // Assuming marks are already percentages
+  }))
 
   const handleCourseChange = (courseCode: string) => {
     setSelectedCourse(courseCode)
     setSelectedSection(null) // Reset section when course changes
+  }
+
+  const handleGradeSubmit = async (studentId: number, gradeType: string, marks: number) => {
+    if (!selectedCourse || !selectedSection) return
+
+    try {
+      await createOrUpdateGrade(selectedCourse, parseInt(selectedSection), {
+        student_id: studentId,
+        grade_type: gradeType,
+        marks: marks
+      })
+      
+      // Refresh grades after successful submission
+      const updatedGrades = await getSectionGrades(selectedCourse, parseInt(selectedSection))
+      setGrades(updatedGrades)
+    } catch (err) {
+      console.error('Failed to submit grade:', err)
+      throw err
+    }
   }
 
   return (
@@ -236,7 +297,8 @@ export default function FacultyClasses() {
                     id: student.student_id.toString(),
                     name: student.name,
                     email: student.email
-                  }))} 
+                  }))}
+                  onGradeSubmit={handleGradeSubmit}
                 />
               </TabsContent>
 
@@ -249,7 +311,20 @@ export default function FacultyClasses() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <GradeTable grades={grades} courseCode={selectedCourse} />
+                    {gradesLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        <span className="ml-2 text-muted-foreground">Loading grades...</span>
+                      </div>
+                    ) : grades.length === 0 ? (
+                      <div className="text-center py-8">
+                        <BarChart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">No grades recorded yet.</p>
+                        <p className="text-sm text-muted-foreground">Use the gradesheet tab to add grades.</p>
+                      </div>
+                    ) : (
+                      <GradeTable grades={convertedGrades} courseCode={selectedCourse} />
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

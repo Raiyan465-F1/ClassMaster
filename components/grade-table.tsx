@@ -3,8 +3,8 @@
 import { useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Filter } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Search } from "lucide-react"
 
 interface Grade {
   id: string
@@ -24,9 +24,11 @@ interface GradeTableProps {
 }
 
 export function GradeTable({ grades, courseCode }: GradeTableProps) {
-  const [filterType, setFilterType] = useState<string>("all")
+  const [searchTerm, setSearchTerm] = useState<string>("")
 
-  const filteredGrades = filterType === "all" ? grades : grades.filter((grade) => grade.type === filterType)
+  const filteredGrades = grades.filter((grade) => 
+    grade.title.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   const getGradeColor = (percentage: number) => {
     if (percentage >= 90) return "bg-chart-4 text-background"
@@ -61,23 +63,16 @@ export function GradeTable({ grades, courseCode }: GradeTableProps) {
 
   return (
     <div className="space-y-4">
-      {/* Filter Controls */}
+      {/* Search Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Grades</SelectItem>
-              <SelectItem value="quiz">Quizzes</SelectItem>
-              <SelectItem value="assignment">Assignments</SelectItem>
-              <SelectItem value="attendance">Attendance</SelectItem>
-              <SelectItem value="midterm">Midterm</SelectItem>
-              <SelectItem value="final">Final</SelectItem>
-            </SelectContent>
-          </Select>
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by assessment name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-64"
+          />
         </div>
 
         <div className="flex items-center space-x-4">
@@ -97,7 +92,6 @@ export function GradeTable({ grades, courseCode }: GradeTableProps) {
             <TableRow>
               <TableHead>Student Name</TableHead>
               <TableHead>Student ID</TableHead>
-              <TableHead>Type</TableHead>
               <TableHead>Assessment</TableHead>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">Score</TableHead>
@@ -107,8 +101,8 @@ export function GradeTable({ grades, courseCode }: GradeTableProps) {
           <TableBody>
             {filteredGrades.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  No grades found for the selected filter.
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  {searchTerm ? `No grades found matching "${searchTerm}".` : "No grades found."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -116,11 +110,6 @@ export function GradeTable({ grades, courseCode }: GradeTableProps) {
                 <TableRow key={grade.id}>
                   <TableCell className="font-medium">{grade.studentName}</TableCell>
                   <TableCell className="font-medium">{grade.studentId}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={getTypeColor(grade.type)}>
-                      {grade.type}
-                    </Badge>
-                  </TableCell>
                   <TableCell className="font-medium">{grade.title}</TableCell>
                   <TableCell className="text-muted-foreground">{grade.date}</TableCell>
                   <TableCell className="text-right">

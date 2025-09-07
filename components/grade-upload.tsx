@@ -21,10 +21,10 @@ interface GradeUploadProps {
   courseCode: string
   section: string
   students: Student[]
+  onGradeSubmit?: (studentId: number, gradeType: string, marks: number) => Promise<void>
 }
 
-export function GradeUpload({ courseCode, section, students }: GradeUploadProps) {
-  const [gradeType, setGradeType] = useState("")
+export function GradeUpload({ courseCode, section, students, onGradeSubmit }: GradeUploadProps) {
   const [assessmentTitle, setAssessmentTitle] = useState("")
   const [totalMarks, setTotalMarks] = useState("")
   const [grades, setGrades] = useState<Record<string, string>>({})
@@ -33,10 +33,33 @@ export function GradeUpload({ courseCode, section, students }: GradeUploadProps)
     setGrades((prev) => ({ ...prev, [studentId]: marks }))
   }
 
-  const handleSaveGrades = () => {
-    // Here you would typically save to backend
-    console.log("Saving grades:", { gradeType, assessmentTitle, totalMarks, grades })
-    alert("Grades saved successfully!")
+  const handleSaveGrades = async () => {
+    if (!onGradeSubmit) {
+      console.log("Saving grades:", { gradeType, assessmentTitle, totalMarks, grades })
+      alert("Grades saved successfully!")
+      return
+    }
+
+    try {
+      // Submit each grade individually
+      const promises = Object.entries(grades).map(([studentId, marks]) => {
+        if (marks && !isNaN(parseFloat(marks))) {
+          return onGradeSubmit(parseInt(studentId), assessmentTitle, parseFloat(marks))
+        }
+        return Promise.resolve()
+      })
+
+      await Promise.all(promises.filter(Boolean))
+      alert("Grades saved successfully!")
+      
+      // Reset form
+      setGrades({})
+      setAssessmentTitle("")
+      setTotalMarks("")
+    } catch (error) {
+      console.error("Failed to save grades:", error)
+      alert("Failed to save grades. Please try again.")
+    }
   }
 
   return (
@@ -57,51 +80,38 @@ export function GradeUpload({ courseCode, section, students }: GradeUploadProps)
 
             <TabsContent value="manual" className="space-y-4">
               {/* Assessment Details */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="gradeType">Grade Type</Label>
-                  <Select value={gradeType} onValueChange={setGradeType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="quiz">Quiz</SelectItem>
-                      <SelectItem value="assignment">Assignment</SelectItem>
-                      <SelectItem value="attendance">Attendance</SelectItem>
-                      <SelectItem value="midterm">Midterm</SelectItem>
-                      <SelectItem value="final">Final</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="assessmentTitle">Assessment Title</Label>
+                  <Label htmlFor="assessmentTitle">Assessment Name</Label>
                   <Input
                     id="assessmentTitle"
                     value={assessmentTitle}
                     onChange={(e) => setAssessmentTitle(e.target.value)}
-                    placeholder="e.g., Quiz 1: Database Design"
+                    placeholder="e.g., Quiz 1: Database Design, Midterm Exam, Assignment 2"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="totalMarks">Total Marks</Label>
+                  <Label htmlFor="totalMarks">Total Marks (Optional)</Label>
                   <Input
                     id="totalMarks"
                     type="number"
                     value={totalMarks}
                     onChange={(e) => setTotalMarks(e.target.value)}
-                    placeholder="e.g., 20"
+                    placeholder="e.g., 100 (for reference only)"
                   />
                 </div>
               </div>
 
               {/* Grade Entry Table */}
-              {gradeType && assessmentTitle && totalMarks && (
+              {assessmentTitle && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">Enter Student Grades</h3>
-                    <Badge variant="outline" className="text-chart-1 border-chart-1">
-                      Total: {totalMarks} marks
-                    </Badge>
+                    {totalMarks && (
+                      <Badge variant="outline" className="text-chart-1 border-chart-1">
+                        Total: {totalMarks} marks
+                      </Badge>
+                    )}
                   </div>
 
                   <div className="border rounded-lg">
@@ -110,17 +120,12 @@ export function GradeUpload({ courseCode, section, students }: GradeUploadProps)
                         <TableRow>
                           <TableHead>Student Name</TableHead>
                           <TableHead>Email</TableHead>
-                          <TableHead className="text-right">Marks Obtained</TableHead>
-                          <TableHead className="text-right">Percentage</TableHead>
+                          <TableHead className="text-right">Marks</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {students.map((student) => {
                           const marks = grades[student.id] || ""
-                          const percentage =
-                            marks && totalMarks
-                              ? Math.round((Number.parseFloat(marks) / Number.parseFloat(totalMarks)) * 100)
-                              : 0
 
                           return (
                             <TableRow key={student.id}>
@@ -129,32 +134,12 @@ export function GradeUpload({ courseCode, section, students }: GradeUploadProps)
                               <TableCell className="text-right">
                                 <Input
                                   type="number"
+                                  step="0.1"
                                   value={marks}
                                   onChange={(e) => handleGradeChange(student.id, e.target.value)}
                                   placeholder="0"
-                                  className="w-20 text-right"
-                                  max={totalMarks}
+                                  className="w-24 text-right"
                                 />
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {marks && (
-                                  <Badge
-                                    variant="secondary"
-                                    className={
-                                      percentage >= 90
-                                        ? "bg-chart-4 text-background"
-                                        : percentage >= 80
-                                          ? "bg-chart-1 text-background"
-                                          : percentage >= 70
-                                            ? "bg-chart-2 text-background"
-                                            : percentage >= 60
-                                              ? "bg-chart-5 text-background"
-                                              : "bg-chart-3 text-background"
-                                    }
-                                  >
-                                    {percentage}%
-                                  </Badge>
-                                )}
                               </TableCell>
                             </TableRow>
                           )
