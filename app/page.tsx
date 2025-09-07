@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
-import { GraduationCap, LogIn, UserPlus } from "lucide-react"
+import { LogIn, UserPlus } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 export default function LoginPage() {
   return (
@@ -10,7 +11,13 @@ export default function LoginPage() {
         <div className="text-center space-y-2">
           <div className="flex justify-center">
             <div className="p-3 bg-primary/10 rounded-full">
-              <GraduationCap className="h-8 w-8 text-primary" />
+              <Image 
+                src="/classMaster.png" 
+                alt="ClassMaster Logo" 
+                width={32} 
+                height={32}
+                className="rounded-full"
+              />
             </div>
           </div>
           <h1 className="text-3xl font-bold text-foreground">ClassMaster</h1>

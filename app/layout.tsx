@@ -6,7 +6,11 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'ClassMaster',
   description: 'Your unified platform for academic management',
-  
+  icons: {
+    icon: '/classMaster.png',
+    shortcut: '/classMaster.png',
+    apple: '/classMaster.png',
+  },
 }
 
 export default function RootLayout({
