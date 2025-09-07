@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
-import { clearCurrentUser } from "@/lib/auth"
+import { clearCurrentUser, getCurrentUser } from "@/lib/auth"
+import { getFacultySections, getCourses } from "@/lib/api"
 import {
   LayoutDashboard,
   BookOpen,
@@ -57,20 +58,59 @@ const sidebarItems = [
   },
 ]
 
-// Mock faculty courses - in real app, this would come from API
-const facultyCourses = [
-  { id: 1, code: "CSE201", name: "Database Systems", section: "A" },
-  { id: 2, code: "CSE201", name: "Database Systems", section: "B" },
-  { id: 3, code: "CSE301", name: "Data Structures", section: "A" },
-  { id: 4, code: "CSE301", name: "Data Structures", section: "C" },
-  { id: 5, code: "CSE401", name: "Software Engineering", section: "B" },
-  { id: 6, code: "CSE401", name: "Software Engineering", section: "C" },
-]
+// Interface for faculty courses in sidebar
+interface FacultyCourse {
+  id: string
+  code: string
+  name: string
+  section: string
+}
 
 export function FacultySidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [classesExpanded, setClassesExpanded] = useState(true)
+  const [facultyCourses, setFacultyCourses] = useState<FacultyCourse[]>([])
+  const [loading, setLoading] = useState(true)
   const pathname = usePathname()
+
+  // Fetch faculty courses on mount
+  useEffect(() => {
+    const fetchFacultyCourses = async () => {
+      try {
+        const user = getCurrentUser()
+        if (!user) {
+          setLoading(false)
+          return
+        }
+
+        // Fetch faculty sections and all courses
+        const [facultySections, allCourses] = await Promise.all([
+          getFacultySections(user.user_id),
+          getCourses()
+        ])
+
+        // Create a map of course codes to course names
+        const courseMap = new Map(allCourses.map(course => [course.course_code, course.course_name]))
+
+        // Create faculty courses list
+        const courses: FacultyCourse[] = facultySections.map(section => ({
+          id: `${section.course_code}-${section.sec_number}`,
+          code: section.course_code,
+          name: courseMap.get(section.course_code) || section.course_code,
+          section: section.sec_number.toString()
+        }))
+
+        setFacultyCourses(courses)
+      } catch (err) {
+        console.error('Failed to fetch faculty courses:', err)
+        setFacultyCourses([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchFacultyCourses()
+  }, [])
 
   const handleSignOut = () => {
     clearCurrentUser()
@@ -155,32 +195,42 @@ export function FacultySidebar() {
 
             {classesExpanded && !collapsed && (
               <div className="ml-4 space-y-1">
-                {facultyCourses.map((course) => {
-                  const courseKey = `${course.code}-${course.section}`
-                  const isActive = pathname.includes("/faculty/classes") && pathname.includes(courseKey.toLowerCase())
+                {loading ? (
+                  <div className="flex items-center justify-center py-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-sidebar-primary"></div>
+                  </div>
+                ) : facultyCourses.length === 0 ? (
+                  <div className="text-center py-2">
+                    <p className="text-xs text-sidebar-muted-foreground">No courses</p>
+                  </div>
+                ) : (
+                  facultyCourses.map((course) => {
+                    const courseKey = `${course.code}-${course.section}`
+                    const isActive = pathname.includes("/faculty/classes") && pathname.includes(courseKey.toLowerCase())
 
-                  return (
-                    <Link key={course.id} href={`/faculty/classes?course=${course.code}&section=${course.section}`}>
-                      <Button
-                        variant={isActive ? "default" : "ghost"}
-                        size="sm"
-                        className={cn(
-                          "w-full justify-start text-xs",
-                          isActive
-                            ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
-                            : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                        )}
-                      >
-                        <div className="flex flex-col items-start">
-                          <span className="font-medium">{course.code} ({course.section})</span>
-                          <span className="text-xs opacity-75 truncate max-w-[140px]">
-                            {course.name}
-                          </span>
-                        </div>
-                      </Button>
-                    </Link>
-                  )
-                })}
+                    return (
+                      <Link key={course.id} href={`/faculty/classes?course=${course.code}&section=${course.section}`}>
+                        <Button
+                          variant={isActive ? "default" : "ghost"}
+                          size="sm"
+                          className={cn(
+                            "w-full justify-start text-xs",
+                            isActive
+                              ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+                              : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                          )}
+                        >
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">{course.code} ({course.section})</span>
+                            <span className="text-xs opacity-75 truncate max-w-[140px]">
+                              {course.name}
+                            </span>
+                          </div>
+                        </Button>
+                      </Link>
+                    )
+                  })
+                )}
               </div>
             )}
           </div>

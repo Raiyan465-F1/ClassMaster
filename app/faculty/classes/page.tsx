@@ -9,37 +9,14 @@ import { GradeTable } from "@/components/grade-table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookOpen, BarChart3, Users, BarChart } from "lucide-react"
+import { getCurrentUser } from "@/lib/auth"
+import { getFacultySections, getSections, getCourses, getSectionStudents, type SectionStudent } from "@/lib/api"
 
-// Mock data
-const mockFacultyCourses = [
-  {
-    code: "CSE201",
-    name: "Database Systems",
-    sections: ["A", "B"],
-  },
-  {
-    code: "CSE301",
-    name: "Data Structures",
-    sections: ["A", "C"],
-  },
-  {
-    code: "CSE401",
-    name: "Software Engineering",
-    sections: ["B", "C"],
-  },
-]
-
-const mockStudents = {
-  "CSE201-A": [
-    { id: "1", name: "Alice Johnson", email: "alice@university.edu" },
-    { id: "2", name: "Bob Smith", email: "bob@university.edu" },
-    { id: "3", name: "Carol Davis", email: "carol@university.edu" },
-  ],
-  "CSE201-B": [
-    { id: "4", name: "David Wilson", email: "david@university.edu" },
-    { id: "5", name: "Eva Brown", email: "eva@university.edu" },
-    { id: "6", name: "Frank Miller", email: "frank@university.edu" },
-  ],
+// Interface for faculty courses with sections
+interface FacultyCourseWithSections {
+  code: string
+  name: string
+  sections: string[]
 }
 
 // Sample grade data with student information
@@ -77,8 +54,61 @@ const mockGrades = {
 export default function FacultyClasses() {
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
   const [selectedSection, setSelectedSection] = useState<string | null>(null)
+  const [facultyCourses, setFacultyCourses] = useState<FacultyCourseWithSections[]>([])
+  const [students, setStudents] = useState<SectionStudent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [studentsLoading, setStudentsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const searchParams = useSearchParams()
 
+  // Fetch faculty courses on mount
+  useEffect(() => {
+    const fetchFacultyCourses = async () => {
+      try {
+        const user = getCurrentUser()
+        if (!user) {
+          setError('User not authenticated')
+          return
+        }
+
+        // Fetch faculty sections and all courses
+        const [facultySections, allCourses] = await Promise.all([
+          getFacultySections(user.user_id),
+          getCourses()
+        ])
+
+        // Create a map of course codes to course names
+        const courseMap = new Map(allCourses.map(course => [course.course_code, course.course_name]))
+
+        // Group sections by course code
+        const courseGroups = new Map<string, string[]>()
+        facultySections.forEach(section => {
+          if (!courseGroups.has(section.course_code)) {
+            courseGroups.set(section.course_code, [])
+          }
+          courseGroups.get(section.course_code)!.push(section.sec_number.toString())
+        })
+
+        // Create faculty courses with sections
+        const coursesWithSections: FacultyCourseWithSections[] = Array.from(courseGroups.entries()).map(([code, sections]) => ({
+          code,
+          name: courseMap.get(code) || code,
+          sections
+        }))
+
+        setFacultyCourses(coursesWithSections)
+      } catch (err) {
+        console.error('Failed to fetch faculty courses:', err)
+        setError('Failed to load courses')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchFacultyCourses()
+  }, [])
+
+  // Handle URL parameters
   useEffect(() => {
     const courseParam = searchParams.get("course")
     const sectionParam = searchParams.get("section")
@@ -99,10 +129,31 @@ export default function FacultyClasses() {
     }
   }, [selectedCourse, selectedSection])
 
-  const selectedCourseData = selectedCourse ? mockFacultyCourses.find((c) => c.code === selectedCourse) : null
+  // Fetch students when course and section are selected
+  useEffect(() => {
+    const fetchStudents = async () => {
+      if (!selectedCourse || !selectedSection) {
+        setStudents([])
+        return
+      }
 
+      try {
+        setStudentsLoading(true)
+        const sectionStudents = await getSectionStudents(selectedCourse, parseInt(selectedSection))
+        setStudents(sectionStudents)
+      } catch (err) {
+        console.error('Failed to fetch students:', err)
+        setStudents([])
+      } finally {
+        setStudentsLoading(false)
+      }
+    }
+
+    fetchStudents()
+  }, [selectedCourse, selectedSection])
+
+  const selectedCourseData = selectedCourse ? facultyCourses.find((c) => c.code === selectedCourse) : null
   const courseKey = selectedCourse && selectedSection ? `${selectedCourse}-${selectedSection}` : null
-  const students = courseKey ? mockStudents[courseKey as keyof typeof mockStudents] || [] : []
   const grades = courseKey ? mockGrades[courseKey as keyof typeof mockGrades] || [] : []
 
   const handleCourseChange = (courseCode: string) => {
@@ -132,13 +183,30 @@ export default function FacultyClasses() {
               <CardDescription>Select a course and section to manage grades and students</CardDescription>
             </CardHeader>
             <CardContent>
-              <FacultyCourseSelector
-                courses={mockFacultyCourses}
-                selectedCourse={selectedCourse}
-                selectedSection={selectedSection}
-                onCourseChange={handleCourseChange}
-                onSectionChange={setSelectedSection}
-              />
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="ml-2 text-muted-foreground">Loading courses...</span>
+                </div>
+              ) : error ? (
+                <div className="text-center py-8">
+                  <p className="text-destructive mb-4">{error}</p>
+                  <button 
+                    onClick={() => window.location.reload()} 
+                    className="text-primary hover:underline"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : (
+                <FacultyCourseSelector
+                  courses={facultyCourses}
+                  selectedCourse={selectedCourse}
+                  selectedSection={selectedSection}
+                  onCourseChange={handleCourseChange}
+                  onSectionChange={setSelectedSection}
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -161,7 +229,15 @@ export default function FacultyClasses() {
               </TabsList>
 
               <TabsContent value="gradesheet">
-                <GradeUpload courseCode={selectedCourse} section={selectedSection} students={students} />
+                <GradeUpload 
+                  courseCode={selectedCourse} 
+                  section={selectedSection} 
+                  students={students.map(student => ({
+                    id: student.student_id.toString(),
+                    name: student.name,
+                    email: student.email
+                  }))} 
+                />
               </TabsContent>
 
               <TabsContent value="grades">
@@ -188,7 +264,12 @@ export default function FacultyClasses() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {students.length === 0 ? (
+                      {studentsLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                          <span className="ml-2 text-muted-foreground">Loading students...</span>
+                        </div>
+                      ) : students.length === 0 ? (
                         <div className="text-center py-8">
                           <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                           <p className="text-muted-foreground">No students enrolled in this section.</p>
@@ -196,7 +277,7 @@ export default function FacultyClasses() {
                       ) : (
                         students.map((student) => (
                           <div
-                            key={student.id}
+                            key={student.student_id}
                             className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                           >
                             <div>
@@ -204,7 +285,7 @@ export default function FacultyClasses() {
                               <p className="text-sm text-muted-foreground">{student.email}</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-sm text-muted-foreground">Student ID: {student.id}</p>
+                              <p className="text-sm text-muted-foreground">Student ID: {student.student_id}</p>
                             </div>
                           </div>
                         ))

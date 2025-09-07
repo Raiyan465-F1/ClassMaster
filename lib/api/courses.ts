@@ -528,3 +528,39 @@ export async function updateStudentAnonymity(
 }
 
 console.log('updateStudentAnonymity function exported:', typeof updateStudentAnonymity)
+
+// Get students in a section
+export interface SectionStudent {
+  student_id: number
+  name: string
+  email: string
+  course_code: string
+  sec_number: number
+}
+
+export async function getSectionStudents(courseCode: string, secNumber: number): Promise<SectionStudent[]> {
+  try {
+    const currentUser = getCurrentUser()
+    if (!currentUser) {
+      throw new Error('User not authenticated')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/sections/${courseCode}/${secNumber}/students`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User_ID': currentUser.user_id.toString(),
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch section students: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error('Error fetching section students:', error)
+    throw error
+  }
+}
