@@ -348,7 +348,19 @@ export default function StudentClasses() {
                         <p className="text-sm text-muted-foreground">Your instructor will add grades as they become available.</p>
                       </div>
                     ) : (
-                      <GradeTable grades={convertedGrades} courseCode={selectedCourseData.code} />
+                      <div className="space-y-4">
+                        <GradeTable grades={convertedGrades} courseCode={selectedCourseData.code} />
+                        
+                        {/* Total Score */}
+                        <div className="flex justify-end pt-4 border-t">
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Total Score</p>
+                            <p className="text-2xl font-bold text-primary">
+                              {convertedGrades.reduce((sum, grade) => sum + grade.marks, 0).toFixed(1)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </CardContent>
                 </Card>

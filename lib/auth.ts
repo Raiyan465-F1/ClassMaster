@@ -30,7 +30,7 @@ export function getCurrentUser(): User | null {
 }
 
 /**
- * Set current user in localStorage
+ * Set current user in localStorage and cookies
  */
 export function setCurrentUser(user: User): void {
   if (typeof window === 'undefined') {
@@ -39,13 +39,16 @@ export function setCurrentUser(user: User): void {
   
   try {
     localStorage.setItem('user', JSON.stringify(user))
+    
+    // Also set cookie for server-side middleware
+    document.cookie = `user=${JSON.stringify(user)}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
   } catch (error) {
-    console.error('Error storing user data in localStorage:', error)
+    console.error('Error storing user data:', error)
   }
 }
 
 /**
- * Clear current user from localStorage (logout)
+ * Clear current user from localStorage and cookies (logout)
  */
 export function clearCurrentUser(): void {
   if (typeof window === 'undefined') {
@@ -54,8 +57,11 @@ export function clearCurrentUser(): void {
   
   try {
     localStorage.removeItem('user')
+    
+    // Also clear cookie
+    document.cookie = 'user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
   } catch (error) {
-    console.error('Error clearing user data from localStorage:', error)
+    console.error('Error clearing user data:', error)
   }
 }
 

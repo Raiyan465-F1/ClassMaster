@@ -113,7 +113,7 @@ export function GradeTable({ grades, courseCode }: GradeTableProps) {
                   <TableCell className="font-medium">{grade.title}</TableCell>
                   <TableCell className="text-muted-foreground">{grade.date}</TableCell>
                   <TableCell className="text-right">
-                    {grade.marks}/{grade.totalMarks}
+                    {grade.marks}
                   </TableCell>
                   <TableCell className="text-right">
                     <Badge className={getGradeColor(grade.percentage)} variant="secondary">
